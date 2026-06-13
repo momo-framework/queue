@@ -1,0 +1,58 @@
+{
+  "name": "momo-framework/queue",
+  "description": "Coroutine-aware Queue/Worker engine with priorities and exponential backoff for Momo Framework",
+  "type": "library",
+  "license": "AGPL-3.0-or-later",
+  "require": {
+    "php": ">=8.5",
+    "momo-framework/kernel": "*",
+    "momo-framework/console": "*",
+    "momo-framework/events": "*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^13.0",
+    "phpstan/phpstan": "^2.1",
+    "friendsofphp/php-cs-fixer": "dev-master",
+    "rector/rector": "dev-main",
+    "phpstan/phpstan-strict-rules": "2.0.x-dev",
+    "phpstan/phpstan-phpunit": "2.0.x-dev"
+  },
+  "repositories": [
+    { "type": "path", "url": "../kernel",   "options": { "symlink": true } },
+    { "type": "path", "url": "../console",  "options": { "symlink": true } },
+    { "type": "path", "url": "../events",   "options": { "symlink": true } }
+  ],
+  "minimum-stability": "dev",
+  "autoload": {
+    "psr-4": {
+      "Momo\\Queue\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Momo\\Queue\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "momo": {
+      "providers": [
+        "Momo\\Queue\\Providers\\QueueServiceProvider"
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "php-cs-fixer fix --dry-run --diff",
+    "lint:fix": "php-cs-fixer fix",
+    "test": "vendor/bin/phpunit",
+    "test:coverage": "vendor/bin/phpunit --coverage-text",
+    "stan": "vendor/bin/phpstan analyse -c phpstan.neon",
+    "rector:check": "rector process --dry-run",
+    "rector:fix": "rector process",
+    "ci": [
+      "@lint",
+      "@stan",
+      "@rector:check",
+      "@test"
+    ]
+  }
+}
