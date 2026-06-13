@@ -46,9 +46,16 @@ use Momo\Queue\Worker\Worker;
  */
 final class QueueServiceProvider extends ServiceProvider
 {
+    protected array $commands = [
+        QueueWorkCommand::class,
+        QueueFailedCommand::class,
+    ];
+
     public function register(): void
     {
         $this->registerConfig(__DIR__ . '/../../config/queue.php', 'queue');
+
+        $this->registerDefaultCommands();
 
         $this->singleton(ClockInterface::class, static fn (): ClockInterface => new SystemClock());
 
@@ -73,11 +80,6 @@ final class QueueServiceProvider extends ServiceProvider
             WorkerInterface::class,
             fn (): WorkerInterface => $this->buildWorker(),
         );
-
-        $this->registerCommands([
-            QueueWorkCommand::class,
-            QueueFailedCommand::class,
-        ]);
     }
 
     private function buildWorker(): WorkerInterface
@@ -105,7 +107,7 @@ final class QueueServiceProvider extends ServiceProvider
         return new ExponentialBackoffPolicy(
             baseSeconds: $base,
             maxSeconds: $max,
-            multiplier: $multiplier < 1.0 ? 1.0 : $multiplier,
+            multiplier: max($multiplier, 1.0),
         );
     }
 
