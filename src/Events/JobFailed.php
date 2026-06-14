@@ -30,7 +30,7 @@ use Throwable;
  * Emitted once a job has exhausted its retry budget and was moved to the
  * failed-job store.
  */
-final class JobFailed extends DomainEvent
+final readonly class JobFailed extends DomainEvent
 {
     public function __construct(
         public readonly Envelope $envelope,

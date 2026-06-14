@@ -28,7 +28,7 @@ use Momo\Queue\Queue\Envelope;
 /**
  * Emitted immediately before a worker invokes a job's handle().
  */
-final class JobProcessing extends DomainEvent
+final readonly class JobProcessing extends DomainEvent
 {
     public function __construct(
         public readonly Envelope $envelope,
