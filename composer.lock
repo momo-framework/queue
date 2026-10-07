@@ -75,7 +75,7 @@
             "dist": {
                 "type": "path",
                 "url": "../console",
-                "reference": "8b1a865973a8d632d58888680fe8d62165ac85f1"
+                "reference": "d9717bdb8ebe5836bf5201712b79a74d2045cb97"
             },
             "require": {
                 "momo-framework/kernel": "*",
@@ -158,7 +158,7 @@
             "dist": {
                 "type": "path",
                 "url": "../events",
-                "reference": "19a9568cf29f454f3353d4836e749875c9c8eb6a"
+                "reference": "4c1e210371efe35a451489bb7f96168a89468823"
             },
             "require": {
                 "momo-framework/kernel": "*",
@@ -231,7 +231,7 @@
             "dist": {
                 "type": "path",
                 "url": "../kernel",
-                "reference": "99438033cd16c4ec0ce8616ee149b4074fb74088"
+                "reference": "78e85c3873bd3d8b28fda0abf6a4b961b00d57b8"
             },
             "require": {
                 "momo-framework/console": "*",
@@ -2436,11 +2436,11 @@
         },
         {
             "name": "phpstan/phpstan",
-            "version": "2.2.x-dev",
+            "version": "2.3.x-dev",
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/f4ce2af8f2d51dd61dd1e836e91f8523a6c5164b",
-                "reference": "f4ce2af8f2d51dd61dd1e836e91f8523a6c5164b",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/7e51ff92cf7fb3b351896319c4d641a8a2721a6d",
+                "reference": "7e51ff92cf7fb3b351896319c4d641a8a2721a6d",
                 "shasum": ""
             },
             "require": {
@@ -2497,7 +2497,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-06-13T11:14:23+00:00"
+            "time": "2026-10-06T14:37:44+00:00"
         },
         {
             "name": "phpstan/phpstan-phpunit",
@@ -2559,21 +2559,21 @@
         },
         {
             "name": "phpstan/phpstan-strict-rules",
-            "version": "2.0.x-dev",
+            "version": "2.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpstan-strict-rules.git",
-                "reference": "de9bdda24a7924833189e7a04107603a32cf1805"
+                "reference": "24ec51589f896f048d0d36de373d993b5cf71786"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan-strict-rules/zipball/de9bdda24a7924833189e7a04107603a32cf1805",
-                "reference": "de9bdda24a7924833189e7a04107603a32cf1805",
+                "url": "https://api.github.com/repos/phpstan/phpstan-strict-rules/zipball/24ec51589f896f048d0d36de373d993b5cf71786",
+                "reference": "24ec51589f896f048d0d36de373d993b5cf71786",
                 "shasum": ""
             },
             "require": {
                 "php": "^7.4 || ^8.0",
-                "phpstan/phpstan": "^2.1.39"
+                "phpstan/phpstan": "^2.3"
             },
             "require-dev": {
                 "php-parallel-lint/php-parallel-lint": "^1.2",
@@ -2582,7 +2582,6 @@
                 "phpunit/phpunit": "^9.6",
                 "shipmonk/name-collision-detector": "^2.1"
             },
-            "default-branch": true,
             "type": "phpstan-extension",
             "extra": {
                 "phpstan": {
@@ -2606,9 +2605,9 @@
             ],
             "support": {
                 "issues": "https://github.com/phpstan/phpstan-strict-rules/issues",
-                "source": "https://github.com/phpstan/phpstan-strict-rules/tree/2.0.x"
+                "source": "https://github.com/phpstan/phpstan-strict-rules/tree/2.1.0"
             },
-            "time": "2026-06-10T12:08:16+00:00"
+            "time": "2026-10-01T21:30:37+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
@@ -5689,7 +5688,6 @@
     "stability-flags": {
         "friendsofphp/php-cs-fixer": 20,
         "phpstan/phpstan-phpunit": 20,
-        "phpstan/phpstan-strict-rules": 20,
         "rector/rector": 20
     },
     "prefer-stable": false,
