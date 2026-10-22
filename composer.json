@@ -18,9 +18,8 @@
     "phpstan/phpstan-phpunit": "2.0.x-dev"
   },
   "repositories": [
-    { "type": "path", "url": "../kernel",   "options": { "symlink": true } },
-    { "type": "path", "url": "../console",  "options": { "symlink": true } },
-    { "type": "path", "url": "../events",   "options": { "symlink": true } }
+    { "type": "path", "url": "../*", "options": { "symlink": true } },
+    { "type": "path", "url": "../../core/*", "options": { "symlink": true } }
   ],
   "minimum-stability": "dev",
   "autoload": {
