@@ -1,60 +1,79 @@
 {
-  "name": "momo-framework/queue",
-  "description": "Coroutine-aware Queue/Worker engine with priorities and exponential backoff for Momo Framework",
-  "type": "library",
-  "license": "AGPL-3.0-or-later",
-  "require": {
-    "php": "^8.5",
-    "momo-framework/kernel": "*",
-    "momo-framework/console": "*",
-    "momo-framework/events": "*"
-  },
-  "require-dev": {
-    "friendsofphp/php-cs-fixer": "^3.0",
-    "phpstan/phpstan": "^2.1",
-    "phpstan/phpstan-phpunit": "^2.0",
-    "phpstan/phpstan-strict-rules": "^2.0",
-    "phpunit/phpunit": "^13.0",
-    "rector/rector": "^2.0"
-  },
-  "repositories": [
-    { "type": "path", "url": "../*", "options": { "symlink": true } },
-    { "type": "path", "url": "../../core/*", "options": { "symlink": true } }
-  ],
-  "minimum-stability": "dev",
-  "autoload": {
-    "psr-4": {
-      "Momo\\Queue\\": "src/"
+    "name": "anidzen/momo-queue",
+    "description": "Coroutine-aware Queue/Worker engine with priorities and exponential backoff for Momo Framework",
+    "version": "0.1.0",
+    "type": "library",
+    "keywords": [
+        "momo",
+        "swoole",
+        "queue"
+    ],
+    "homepage": "https://gitlab.com/anidzen/momo/packages/queue",
+    "license": "AGPL-3.0-or-later",
+    "support": {
+        "issues": "https://gitlab.com/anidzen/momo/packages/queue/-/issues",
+        "source": "https://gitlab.com/anidzen/momo/packages/queue"
+    },
+    "authors": [
+        {
+            "name": "Vahe Sargsyan",
+            "email": "w33bv.gl@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.5",
+        "anidzen/momo-console": "^0.1",
+        "anidzen/momo-events": "^0.1",
+        "anidzen/momo-kernel": "^0.1"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/phpunit": "^13.0",
+        "rector/rector": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Momo\\Queue\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Momo\\Queue\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "momo": {
+            "providers": [
+                "Momo\\Queue\\Providers\\QueueServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "rector": "rector process --dry-run",
+        "rector:fix": "rector process",
+        "lint:check": "php-cs-fixer fix --dry-run --diff",
+        "lint": "php-cs-fixer fix",
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "test": "phpunit",
+        "check": [
+            "@rector",
+            "@lint:check",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://reg.anidzen.com/repository/composer/"
+        }
+    ],
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
     }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "Momo\\Queue\\Tests\\": "tests/"
-    }
-  },
-  "extra": {
-    "momo": {
-      "providers": [
-        "Momo\\Queue\\Providers\\QueueServiceProvider"
-      ]
-    }
-  },
-  "scripts": {
-    "rector": "rector process --dry-run",
-    "rector:fix": "rector process",
-    "lint:check": "php-cs-fixer fix --dry-run --diff",
-    "lint": "php-cs-fixer fix",
-    "analyse": "phpstan analyse --memory-limit=1G",
-    "test": "phpunit",
-    "check": [
-      "@rector",
-      "@lint:check",
-      "@analyse",
-      "@test"
-    ]
-  },
-  "prefer-stable": true,
-  "config": {
-    "sort-packages": true
-  }
 }

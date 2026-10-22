@@ -1,16 +1,14 @@
 <div align="center">
   <img src="https://avatars.githubusercontent.com/u/255415480?s=200&v=4" alt="Momo Framework" width="120" height="120" />
 
-  <h1>momo-framework/queue</h1>
+  <h1>anidzen/momo-queue</h1>
 
   <p>
-      Coroutine-aware priority queue with pluggable backoff strategies for <a href="https://github.com/momo-framework">Momo Framework</a>.
+      Coroutine-aware priority queue with pluggable backoff strategies for <a href="https://gitlab.com/anidzen/momo">Momo Framework</a>.
   </p>
 
   <p>
-    <img src="https://github.com/momo-framework/queue/actions/workflows/ci.yml/badge.svg" alt="CI" />
-    <img src="https://img.shields.io/packagist/v/momo-framework/queue.svg?style=flat" alt="Latest Version" />
-    <img src="https://img.shields.io/packagist/dt/momo-framework/queue.svg?style=flat" alt="Total Downloads" />
+    <img src="https://gitlab.com/anidzen/momo" alt="CI" />
     <img src="https://img.shields.io/badge/php-%3E%3D8.5-8892bf.svg" alt="PHP Version" />
     <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License" />
     <img src="https://img.shields.io/badge/coverage-100%25-brightgreen.svg" alt="Coverage" />
@@ -23,23 +21,23 @@
 
 ## Overview
 
-`momo-framework/queue` provides a coroutine-aware job queue engine backed by a priority min-heap. Jobs declare their retry budget and dispatch priority through a single `#[AsJob]` attribute. The `Worker` drains the queue in a tight loop, retrying failures with configurable backoff and moving exhausted jobs to a failed-job store.
+`anidzen/momo-queue` provides a coroutine-aware job queue engine backed by a priority min-heap. Jobs declare their retry budget and dispatch priority through a single `#[AsJob]` attribute. The `Worker` drains the queue in a tight loop, retrying failures with configurable backoff and moving exhausted jobs to a failed-job store.
 
-The package integrates with `momo-framework/events`: `JobProcessing`, `JobProcessed`, and `JobFailed` domain events are published on every lifecycle transition, enabling telemetry and notifications without coupling them to the worker itself.
+The package integrates with `anidzen/momo-events`: `JobProcessing`, `JobProcessed`, and `JobFailed` domain events are published on every lifecycle transition, enabling telemetry and notifications without coupling them to the worker itself.
 
 `InMemoryQueue` is the built-in driver. It uses two binary heaps — one for ready jobs ordered by priority, one for delayed jobs ordered by availability time — and is safe under Swoole's cooperative scheduler because every mutating operation completes without an I/O suspension point.
 
 ## Requirements
 
 - PHP >= 8.5
-- `momo-framework/kernel`
-- `momo-framework/events`
+- `anidzen/momo-kernel`
+- `anidzen/momo-events`
 - `ext-swoole` (optional — required only for `CoroutineSleeper`)
 
 ## Installation
 
 ```bash
-composer require momo-framework/queue
+composer require anidzen/momo-queue
 ```
 
 ## Core Concepts

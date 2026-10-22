@@ -1,16 +1,14 @@
 <div align="center">
   <img src="https://avatars.githubusercontent.com/u/255415480?s=200&v=4" alt="Momo Framework" width="120" height="120" />
 
-  <h1>momo-framework/queue</h1>
+  <h1>anidzen/momo-queue</h1>
 
   <p>
-      Корутино-совместимая приоритетная очередь с подключаемыми стратегиями backoff для <a href="https://github.com/momo-framework">Momo Framework</a>.
+      Корутино-совместимая приоритетная очередь с подключаемыми стратегиями backoff для <a href="https://gitlab.com/anidzen/momo">Momo Framework</a>.
   </p>
 
   <p>
-    <img src="https://github.com/momo-framework/queue/actions/workflows/ci.yml/badge.svg" alt="CI" />
-    <img src="https://img.shields.io/packagist/v/momo-framework/queue.svg?style=flat" alt="Latest Version" />
-    <img src="https://img.shields.io/packagist/dt/momo-framework/queue.svg?style=flat" alt="Total Downloads" />
+    <img src="https://gitlab.com/anidzen/momo" alt="CI" />
     <img src="https://img.shields.io/badge/php-%3E%3D8.5-8892bf.svg" alt="PHP Version" />
     <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License" />
     <img src="https://img.shields.io/badge/coverage-100%25-brightgreen.svg" alt="Coverage" />
@@ -23,23 +21,23 @@
 
 ## Обзор
 
-`momo-framework/queue` предоставляет корутино-совместимый движок очереди задач, основанный на приоритетном min-heap. Джобы объявляют бюджет повторных попыток и приоритет диспатча через единственный атрибут `#[AsJob]`. `Worker` непрерывно опустошает очередь, повторяя неудачи с настраиваемым backoff и перемещая исчерпавшие попытки джобы в хранилище упавших задач.
+`anidzen/momo-queue` предоставляет корутино-совместимый движок очереди задач, основанный на приоритетном min-heap. Джобы объявляют бюджет повторных попыток и приоритет диспатча через единственный атрибут `#[AsJob]`. `Worker` непрерывно опустошает очередь, повторяя неудачи с настраиваемым backoff и перемещая исчерпавшие попытки джобы в хранилище упавших задач.
 
-Пакет интегрируется с `momo-framework/events`: доменные события `JobProcessing`, `JobProcessed` и `JobFailed` публикуются на каждом переходе жизненного цикла, обеспечивая телеметрию и уведомления без привязки к воркеру.
+Пакет интегрируется с `anidzen/momo-events`: доменные события `JobProcessing`, `JobProcessed` и `JobFailed` публикуются на каждом переходе жизненного цикла, обеспечивая телеметрию и уведомления без привязки к воркеру.
 
 `InMemoryQueue` — встроенный драйвер. Он использует два бинарных heap'а: один для готовых задач, упорядоченных по приоритету, и один для отложенных, упорядоченных по времени доступности. Безопасен в рамках кооперативного планировщика Swoole, так как каждая мутирующая операция завершается без точки приостановки I/O.
 
 ## Требования
 
 - PHP >= 8.5
-- `momo-framework/kernel`
-- `momo-framework/events`
+- `anidzen/momo-kernel`
+- `anidzen/momo-events`
 - `ext-swoole` (опционально — только для `CoroutineSleeper`)
 
 ## Установка
 
 ```bash
-composer require momo-framework/queue
+composer require anidzen/momo-queue
 ```
 
 ## Ключевые концепции
