@@ -88,24 +88,24 @@ publish:
       fi
       REPO_URL="$REGISTRY_URL/repository/composer"
       METADATA_URL="$REPO_URL/p2/$NAME.json"
-      STATUS=$(curl -s -o metadata.json -w '%{http_code}' -u "$COMPOSER_USER:$COMPOSER_PASSWORD" "$METADATA_URL")
+      STATUS=$(curl -s -o /tmp/metadata.json -w '%{http_code}' -u "$COMPOSER_USER:$COMPOSER_PASSWORD" "$METADATA_URL")
       case "$STATUS" in
         200) ;;
-        404) jq -n --arg name "$NAME" '{packages: {($name): []}}' > metadata.json ;;
+        404) jq -n --arg name "$NAME" '{packages: {($name): []}}' > /tmp/metadata.json ;;
         *) echo "GET $METADATA_URL returned $STATUS."; exit 1 ;;
       esac
-      if jq -e --arg name "$NAME" --arg version "$VERSION" '.packages[$name] | any(.version == $version)' metadata.json > /dev/null; then
+      if jq -e --arg name "$NAME" --arg version "$VERSION" '.packages[$name] | any(.version == $version)' /tmp/metadata.json > /dev/null; then
         echo "$NAME $VERSION is already published."
         exit 0
       fi
-    - composer archive --format=zip --dir=dist --file="$CI_COMMIT_TAG"
+    - composer archive --format=zip --dir=/tmp/dist --file="$CI_COMMIT_TAG"
     - |
       DIST_URL="$REPO_URL/dist/$CI_PROJECT_PATH/$CI_COMMIT_TAG.zip"
-      curl -sf -u "$COMPOSER_USER:$COMPOSER_PASSWORD" --upload-file "dist/$CI_COMMIT_TAG.zip" "$DIST_URL"
-      jq --arg url "$DIST_URL" --arg sha "$(sha1sum "dist/$CI_COMMIT_TAG.zip" | cut -d' ' -f1)" \
-        '. + {dist: {type: "zip", url: $url, shasum: $sha}}' composer.json > entry.json
-      jq --arg name "$NAME" --slurpfile entry entry.json '.packages[$name] += $entry' metadata.json > p2.json
-      curl -sf -u "$COMPOSER_USER:$COMPOSER_PASSWORD" --upload-file p2.json "$METADATA_URL"
+      curl -sf -u "$COMPOSER_USER:$COMPOSER_PASSWORD" --upload-file "/tmp/dist/$CI_COMMIT_TAG.zip" "$DIST_URL"
+      jq --arg url "$DIST_URL" --arg sha "$(sha1sum "/tmp/dist/$CI_COMMIT_TAG.zip" | cut -d' ' -f1)" \
+        '. + {dist: {type: "zip", url: $url, shasum: $sha}}' composer.json > /tmp/entry.json
+      jq --arg name "$NAME" --slurpfile entry /tmp/entry.json '.packages[$name] += $entry' /tmp/metadata.json > /tmp/p2.json
+      curl -sf -u "$COMPOSER_USER:$COMPOSER_PASSWORD" --upload-file /tmp/p2.json "$METADATA_URL"
 
 release:cut:
   stage: publish
