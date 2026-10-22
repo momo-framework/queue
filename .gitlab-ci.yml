@@ -1,0 +1,69 @@
+stages:
+  - verify
+
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+
+default:
+  interruptible: true
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - scheduler_failure
+      - api_failure
+
+variables:
+  COMPOSER_ALLOW_SUPERUSER: "1"
+  COMPOSER_NO_INTERACTION: "1"
+  COMPOSER_IGNORE_PLATFORM_REQ: "ext-swoole"
+  MOMO_REPOS: "core/kernel core/http core/routing core/server core/swoole core/console packages/bus packages/cache packages/database packages/discovery packages/events packages/modules packages/notifications packages/queue"
+
+.php:
+  stage: verify
+  image: php:8.5-cli
+  needs: []
+  cache:
+    key:
+      prefix: composer-8.5
+      files:
+        - composer.json
+    paths:
+      - vendor
+  before_script:
+    - apt-get update -qq && apt-get install -qq -y --no-install-recommends git unzip > /dev/null
+    - curl -sS https://getcomposer.org/installer | php -- --2 --install-dir=/usr/local/bin --filename=composer
+    - |
+      ROOT="${CI_PROJECT_DIR%/$CI_PROJECT_PATH}/anidzen/momo"
+      for REPO in $MOMO_REPOS; do
+        [ -d "$ROOT/$REPO" ] || git clone -q --depth 1 "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/anidzen/momo/$REPO.git" "$ROOT/$REPO"
+      done
+    - composer update --no-progress --prefer-dist
+
+rector:
+  extends: .php
+  script:
+    - composer rector
+
+lint:
+  extends: .php
+  script:
+    - composer lint:check
+
+analyse:
+  extends: .php
+  script:
+    - composer analyse
+
+test:
+  extends: .php
+  script:
+    - composer test

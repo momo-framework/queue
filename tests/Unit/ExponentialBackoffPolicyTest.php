@@ -1,17 +1,15 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
@@ -22,16 +20,21 @@ use InvalidArgumentException;
 use Momo\Queue\Backoff\ExponentialBackoffPolicy;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ *
+ * @coversNothing
+ */
 final class ExponentialBackoffPolicyTest extends TestCase
 {
-    public function testFirstRetryWaitsBaseSeconds(): void
+    public function test_first_retry_waits_base_seconds(): void
     {
         $policy = new ExponentialBackoffPolicy(baseSeconds: 5, maxSeconds: 3600, multiplier: 2.0);
 
         self::assertSame(5, $policy->delayFor(2));
     }
 
-    public function testDelayGrowsGeometrically(): void
+    public function test_delay_grows_geometrically(): void
     {
         $policy = new ExponentialBackoffPolicy(baseSeconds: 5, maxSeconds: 3600, multiplier: 2.0);
 
@@ -41,35 +44,35 @@ final class ExponentialBackoffPolicyTest extends TestCase
         self::assertSame(40, $policy->delayFor(5));
     }
 
-    public function testDelayIsCappedAtMaxSeconds(): void
+    public function test_delay_is_capped_at_max_seconds(): void
     {
         $policy = new ExponentialBackoffPolicy(baseSeconds: 5, maxSeconds: 30, multiplier: 2.0);
 
         self::assertSame(30, $policy->delayFor(10));
     }
 
-    public function testAttemptsBeforeFirstRetryUseBase(): void
+    public function test_attempts_before_first_retry_use_base(): void
     {
         $policy = new ExponentialBackoffPolicy(baseSeconds: 5, maxSeconds: 3600, multiplier: 2.0);
 
         self::assertSame(5, $policy->delayFor(1));
     }
 
-    public function testRejectsNonPositiveBase(): void
+    public function test_rejects_non_positive_base(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
         new ExponentialBackoffPolicy(baseSeconds: 0);
     }
 
-    public function testRejectsMaxBelowBase(): void
+    public function test_rejects_max_below_base(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
         new ExponentialBackoffPolicy(baseSeconds: 10, maxSeconds: 5);
     }
 
-    public function testRejectsMultiplierBelowOne(): void
+    public function test_rejects_multiplier_below_one(): void
     {
         $this->expectException(InvalidArgumentException::class);
 

@@ -1,26 +1,24 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Unauthorized copying, modification, or distribution of this file,
- * via any medium, is strictly prohibited without prior written permission
- * from the copyright holder.
- *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
 
 namespace Momo\Queue\Queue;
+
+use function array_pop;
+use function count;
+use function intdiv;
 
 /**
  * Binary heap of {@see Envelope}s ordered by an injected comparator.
@@ -41,8 +39,7 @@ final class PriorityQueue
      */
     public function __construct(
         private readonly mixed $comparator,
-    ) {
-    }
+    ) {}
 
     /**
      * Insert an envelope, restoring the heap invariant in O(log n).
@@ -50,23 +47,23 @@ final class PriorityQueue
     public function insert(Envelope $envelope): void
     {
         $this->heap[] = $envelope;
-        $this->siftUp(\count($this->heap) - 1);
+        $this->siftUp(count($this->heap) - 1);
     }
 
     /**
      * Remove and return the minimum envelope under the comparator, or null when
      * empty. O(log n).
      */
-    public function extract(): ?Envelope
+    public function extract(): Envelope|null
     {
-        $count = \count($this->heap);
+        $count = count($this->heap);
 
         if ($count === 0) {
             return null;
         }
 
         $root = $this->heap[0];
-        $last = \array_pop($this->heap);
+        $last = array_pop($this->heap);
 
         if ($count > 1 && $last !== null) {
             $this->heap[0] = $last;
@@ -79,7 +76,7 @@ final class PriorityQueue
     /**
      * Return the minimum envelope without removing it, or null when empty.
      */
-    public function peek(): ?Envelope
+    public function peek(): Envelope|null
     {
         return $this->heap[0] ?? null;
     }
@@ -89,7 +86,7 @@ final class PriorityQueue
      */
     public function size(): int
     {
-        return \count($this->heap);
+        return count($this->heap);
     }
 
     public function isEmpty(): bool
@@ -100,7 +97,7 @@ final class PriorityQueue
     private function siftUp(int $index): void
     {
         while ($index > 0) {
-            $parent = \intdiv($index - 1, 2);
+            $parent = intdiv($index - 1, 2);
 
             if ($this->compare($index, $parent) >= 0) {
                 break;
@@ -113,11 +110,11 @@ final class PriorityQueue
 
     private function siftDown(int $index): void
     {
-        $count = \count($this->heap);
+        $count = count($this->heap);
 
         while (true) {
-            $left     = 2 * $index + 1;
-            $right    = 2 * $index + 2;
+            $left = 2 * $index + 1;
+            $right = 2 * $index + 2;
             $smallest = $index;
 
             if ($left < $count && $this->compare($left, $smallest) < 0) {

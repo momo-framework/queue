@@ -1,17 +1,15 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
@@ -23,9 +21,14 @@ use Momo\Queue\Support\MutableClock;
 use Momo\Queue\Tests\Fixtures\RecordingJob;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ *
+ * @coversNothing
+ */
 final class InMemoryQueueTest extends TestCase
 {
-    public function testPopReturnsNullWhenEmpty(): void
+    public function test_pop_returns_null_when_empty(): void
     {
         $queue = new InMemoryQueue(new MutableClock(0));
 
@@ -33,7 +36,7 @@ final class InMemoryQueueTest extends TestCase
         self::assertSame(0, $queue->size());
     }
 
-    public function testPushReturnsNonEmptyId(): void
+    public function test_push_returns_non_empty_id(): void
     {
         $queue = new InMemoryQueue(new MutableClock(0));
 
@@ -43,11 +46,11 @@ final class InMemoryQueueTest extends TestCase
         self::assertSame(1, $queue->size());
     }
 
-    public function testHigherPriorityPopsFirst(): void
+    public function test_higher_priority_pops_first(): void
     {
         $queue = new InMemoryQueue(new MutableClock(0));
 
-        $low  = $queue->push(new RecordingJob(), priority: 1);
+        $low = $queue->push(new RecordingJob(), priority: 1);
         $high = $queue->push(new RecordingJob(), priority: 10);
 
         $first = $queue->pop();
@@ -59,7 +62,7 @@ final class InMemoryQueueTest extends TestCase
         self::assertSame($low, $second->id);
     }
 
-    public function testDelayedJobIsNotReturnedEarly(): void
+    public function test_delayed_job_is_not_returned_early(): void
     {
         $clock = new MutableClock(1_000);
         $queue = new InMemoryQueue($clock);
@@ -70,7 +73,7 @@ final class InMemoryQueueTest extends TestCase
         self::assertSame(1, $queue->size());
     }
 
-    public function testDelayedJobBecomesAvailableAfterClockAdvances(): void
+    public function test_delayed_job_becomes_available_after_clock_advances(): void
     {
         $clock = new MutableClock(1_000);
         $queue = new InMemoryQueue($clock);
@@ -84,12 +87,13 @@ final class InMemoryQueueTest extends TestCase
         self::assertSame($id, $envelope->id);
     }
 
-    public function testReadyJobOutranksDelayedRegardlessOfPriority(): void
+    public function test_ready_job_outranks_delayed_regardless_of_priority(): void
     {
         $clock = new MutableClock(0);
         $queue = new InMemoryQueue($clock);
 
         $queue->later(100, new RecordingJob(), priority: 99);
+
         $ready = $queue->push(new RecordingJob(), priority: 0);
 
         $envelope = $queue->pop();
@@ -97,12 +101,13 @@ final class InMemoryQueueTest extends TestCase
         self::assertSame($ready, $envelope->id);
     }
 
-    public function testReleaseRequeuesWithDelay(): void
+    public function test_release_requeues_with_delay(): void
     {
         $clock = new MutableClock(0);
         $queue = new InMemoryQueue($clock);
 
         $queue->push(new RecordingJob());
+
         $envelope = $queue->pop();
         self::assertNotNull($envelope);
 

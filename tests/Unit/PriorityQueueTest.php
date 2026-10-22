@@ -1,17 +1,15 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
@@ -24,9 +22,14 @@ use Momo\Queue\Queue\PriorityQueue;
 use Momo\Queue\Tests\Fixtures\RecordingJob;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ *
+ * @coversNothing
+ */
 final class PriorityQueueTest extends TestCase
 {
-    public function testExtractFromEmptyReturnsNull(): void
+    public function test_extract_from_empty_returns_null(): void
     {
         $queue = new PriorityQueue(Comparators::byPriority());
 
@@ -36,7 +39,7 @@ final class PriorityQueueTest extends TestCase
         self::assertSame(0, $queue->size());
     }
 
-    public function testHigherPriorityLeavesFirst(): void
+    public function test_higher_priority_leaves_first(): void
     {
         $queue = new PriorityQueue(Comparators::byPriority());
 
@@ -49,7 +52,7 @@ final class PriorityQueueTest extends TestCase
         self::assertSame(1, $this->priorityOf($queue->extract()));
     }
 
-    public function testEqualPriorityPreservesInsertionOrder(): void
+    public function test_equal_priority_preserves_insertion_order(): void
     {
         $queue = new PriorityQueue(Comparators::byPriority());
 
@@ -62,9 +65,9 @@ final class PriorityQueueTest extends TestCase
         self::assertSame(3, $this->sequenceOf($queue->extract()));
     }
 
-    public function testHeapStaysOrderedUnderManyInsertions(): void
+    public function test_heap_stays_ordered_under_many_insertions(): void
     {
-        $queue     = new PriorityQueue(Comparators::byPriority());
+        $queue = new PriorityQueue(Comparators::byPriority());
         $priorities = [4, 9, 1, 7, 2, 8, 0, 6, 3, 5];
 
         foreach ($priorities as $seq => $priority) {
@@ -72,7 +75,7 @@ final class PriorityQueueTest extends TestCase
         }
 
         $extracted = [];
-        while (($envelope = $queue->extract()) !== null) {
+        while (($envelope = $queue->extract()) instanceof Envelope) {
             $extracted[] = $envelope->priority;
         }
 
@@ -94,14 +97,14 @@ final class PriorityQueueTest extends TestCase
         );
     }
 
-    private function priorityOf(?Envelope $envelope): int
+    private function priorityOf(Envelope|null $envelope): int
     {
         self::assertNotNull($envelope);
 
         return $envelope->priority;
     }
 
-    private function sequenceOf(?Envelope $envelope): int
+    private function sequenceOf(Envelope|null $envelope): int
     {
         self::assertNotNull($envelope);
 

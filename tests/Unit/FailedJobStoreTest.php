@@ -1,17 +1,15 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
@@ -25,9 +23,14 @@ use Momo\Queue\Tests\Fixtures\RecordingJob;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
+/**
+ * @internal
+ *
+ * @coversNothing
+ */
 final class FailedJobStoreTest extends TestCase
 {
-    public function testStoreAndRetrieveMostRecentFirst(): void
+    public function test_store_and_retrieve_most_recent_first(): void
     {
         $store = new InMemoryFailedJobStore(new MutableClock(1_000));
 
@@ -42,23 +45,23 @@ final class FailedJobStoreTest extends TestCase
         self::assertSame(1_000, $records[0]->failedAt);
     }
 
-    public function testForgetRemovesRecord(): void
+    public function test_forget_removes_record(): void
     {
         $store = new InMemoryFailedJobStore(new MutableClock(0));
-        $id    = $store->store($this->envelope('a'), new RuntimeException('x'));
+        $id = $store->store($this->envelope('a'), new RuntimeException('x'));
 
         self::assertTrue($store->forget($id));
         self::assertSame([], $store->all());
     }
 
-    public function testForgetUnknownIdReturnsFalse(): void
+    public function test_forget_unknown_id_returns_false(): void
     {
         $store = new InMemoryFailedJobStore(new MutableClock(0));
 
         self::assertFalse($store->forget('does-not-exist'));
     }
 
-    public function testFlushReturnsRemovedCount(): void
+    public function test_flush_returns_removed_count(): void
     {
         $store = new InMemoryFailedJobStore(new MutableClock(0));
         $store->store($this->envelope('a'), new RuntimeException('x'));

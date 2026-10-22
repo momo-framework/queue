@@ -1,26 +1,22 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Unauthorized copying, modification, or distribution of this file,
- * via any medium, is strictly prohibited without prior written permission
- * from the copyright holder.
- *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
 
 namespace Momo\Queue\Providers;
+
+use function is_numeric;
 
 use Momo\Events\Contracts\EventBusInterface;
 use Momo\Kernel\Support\ServiceProvider;
@@ -38,6 +34,7 @@ use Momo\Queue\Queue\InMemoryQueue;
 use Momo\Queue\Support\SystemClock;
 use Momo\Queue\Worker\CoroutineSleeper;
 use Momo\Queue\Worker\Worker;
+use Override;
 
 /**
  * Wires the queue engine into the application container.
@@ -46,6 +43,7 @@ use Momo\Queue\Worker\Worker;
  */
 final class QueueServiceProvider extends ServiceProvider
 {
+    #[Override]
     protected array $commands = [
         QueueWorkCommand::class,
         QueueFailedCommand::class,
@@ -100,8 +98,8 @@ final class QueueServiceProvider extends ServiceProvider
 
     private function buildBackoffPolicy(): BackoffPolicyInterface
     {
-        $base       = \max(1, $this->intConfig('queue.backoff.base_seconds', 5));
-        $max        = \max($base, $this->intConfig('queue.backoff.max_seconds', 3600));
+        $base = \max(1, $this->intConfig('queue.backoff.base_seconds', 5));
+        $max = \max($base, $this->intConfig('queue.backoff.max_seconds', 3600));
         $multiplier = $this->floatConfig('queue.backoff.multiplier', 2.0);
 
         return new ExponentialBackoffPolicy(
@@ -113,23 +111,20 @@ final class QueueServiceProvider extends ServiceProvider
 
     private function clock(): ClockInterface
     {
-        /** @var ClockInterface $clock */
-        $clock = $this->app->make(ClockInterface::class);
-
-        return $clock;
+        return $this->app->make(ClockInterface::class);
     }
 
     private function intConfig(string $key, int $default): int
     {
         $value = $this->app->getConfig($key, $default);
 
-        return \is_numeric($value) ? (int) $value : $default;
+        return is_numeric($value) ? (int) $value : $default;
     }
 
     private function floatConfig(string $key, float $default): float
     {
         $value = $this->app->getConfig($key, $default);
 
-        return \is_numeric($value) ? (float) $value : $default;
+        return is_numeric($value) ? (float) $value : $default;
     }
 }

@@ -1,22 +1,23 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
 
 namespace Momo\Queue\Tests\Fixtures;
+
+use function array_filter;
+use function count;
 
 use Momo\Events\Contracts\DomainEventInterface;
 use Momo\Events\Contracts\EventBusInterface;
@@ -37,19 +38,18 @@ final class SpyEventBus implements EventBusInterface
         }
     }
 
-    public function subscribe(string $eventClass, EventListenerInterface $listener): void
-    {
-    }
+    public function subscribe(string $eventClass, EventListenerInterface $listener): void {}
 
     /**
      * Count published events of a given concrete type.
      *
      * @param class-string<DomainEventInterface> $eventClass
+     *
      * @return int<0, max>
      */
     public function countOf(string $eventClass): int
     {
-        return \count(\array_filter(
+        return count(array_filter(
             $this->published,
             static fn (DomainEventInterface $event): bool => $event instanceof $eventClass,
         ));

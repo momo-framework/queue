@@ -1,28 +1,27 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Unauthorized copying, modification, or distribution of this file,
- * via any medium, is strictly prohibited without prior written permission
- * from the copyright holder.
- *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
 
 namespace Momo\Queue\Worker;
 
+use function extension_loaded;
+
 use Momo\Queue\Contracts\SleeperInterface;
+
+use function round;
+use function usleep;
 
 /**
  * Idle-wait that yields the Swoole coroutine scheduler when the extension is
@@ -34,19 +33,19 @@ use Momo\Queue\Contracts\SleeperInterface;
  */
 final class CoroutineSleeper implements SleeperInterface
 {
-    public function sleep(int|float $seconds): void
+    public function sleep(float|int $seconds): void
     {
         if ($seconds <= 0) {
             return;
         }
 
-        if (\extension_loaded('swoole')) {
-            $sleep = ['Swoole\\Coroutine', 'sleep'];
+        if (extension_loaded('swoole')) {
+            $sleep = \Swoole\Coroutine::sleep(...);
             $sleep((float) $seconds);
 
             return;
         }
 
-        \usleep((int) \round($seconds * 1_000_000));
+        usleep((int) round($seconds * 1_000_000));
     }
 }

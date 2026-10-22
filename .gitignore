@@ -1,6 +1,6 @@
 /.idea
 /vendor
 /coverage
-
-.phpunit.cache
-.php-cs-fixer.cache
+/composer.lock
+/.phpunit.cache
+/.php-cs-fixer.cache

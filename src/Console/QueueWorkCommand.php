@@ -1,32 +1,36 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Unauthorized copying, modification, or distribution of this file,
- * via any medium, is strictly prohibited without prior written permission
- * from the copyright holder.
- *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
 
 namespace Momo\Queue\Console;
 
+use function function_exists;
+use function is_numeric;
+use function max;
+
 use Momo\Console\Attributes\AsCommand;
 use Momo\Console\Attributes\Option;
 use Momo\Console\Command;
 use Momo\Queue\Contracts\WorkerInterface;
 use Momo\Queue\Worker\WorkerOptions;
+
+use function pcntl_async_signals;
+use function pcntl_signal;
+
+use const SIGINT;
+use const SIGTERM;
 
 /**
  * Starts a long-running queue worker that drains pending jobs.
@@ -46,12 +50,12 @@ final class QueueWorkCommand extends Command
 
     protected function handle(): int
     {
-        $once    = (bool) $this->option('once');
+        $once = (bool) $this->option('once');
         $options = new WorkerOptions(
-            maxJobs: $once ? 1 : \max(0, $this->intOption('max-jobs')),
-            sleepSeconds: \max(0, $this->intOption('sleep')),
+            maxJobs: $once ? 1 : max(0, $this->intOption('max-jobs')),
+            sleepSeconds: max(0, $this->intOption('sleep')),
             stopWhenEmpty: $once,
-            memoryLimitMb: \max(0, $this->intOption('memory')),
+            memoryLimitMb: max(0, $this->intOption('memory')),
         );
 
         $this->registerSignalHandlers();
@@ -69,22 +73,22 @@ final class QueueWorkCommand extends Command
     {
         $value = $this->option($name);
 
-        return \is_numeric($value) ? (int) $value : 0;
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     private function registerSignalHandlers(): void
     {
-        if (! \function_exists('pcntl_async_signals') || ! \function_exists('pcntl_signal')) {
+        if (! function_exists('pcntl_async_signals') || ! function_exists('pcntl_signal')) {
             return;
         }
 
-        \pcntl_async_signals(true);
+        pcntl_async_signals(true);
 
         $stop = function (): void {
             $this->worker->stop();
         };
 
-        \pcntl_signal(\SIGTERM, $stop);
-        \pcntl_signal(\SIGINT, $stop);
+        pcntl_signal(SIGTERM, $stop);
+        pcntl_signal(SIGINT, $stop);
     }
 }

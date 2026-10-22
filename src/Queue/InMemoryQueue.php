@@ -1,30 +1,29 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Unauthorized copying, modification, or distribution of this file,
- * via any medium, is strictly prohibited without prior written permission
- * from the copyright holder.
- *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
 
 namespace Momo\Queue\Queue;
 
+use function bin2hex;
+use function max;
+
 use Momo\Queue\Contracts\ClockInterface;
 use Momo\Queue\Contracts\JobInterface;
 use Momo\Queue\Contracts\QueueInterface;
+
+use function random_bytes;
 
 /**
  * Process-local queue backed by two binary heaps: a ready heap ordered by
@@ -48,7 +47,7 @@ final class InMemoryQueue implements QueueInterface
     public function __construct(
         private readonly ClockInterface $clock,
     ) {
-        $this->ready   = new PriorityQueue(Comparators::byPriority());
+        $this->ready = new PriorityQueue(Comparators::byPriority());
         $this->delayed = new PriorityQueue(Comparators::byAvailability());
     }
 
@@ -76,7 +75,7 @@ final class InMemoryQueue implements QueueInterface
             id: $id,
             job: $job,
             priority: $priority,
-            availableAt: $this->clock->now() + \max(0, $delaySeconds),
+            availableAt: $this->clock->now() + max(0, $delaySeconds),
             attempts: 0,
             sequence: $this->nextSequence(),
         ));
@@ -84,7 +83,7 @@ final class InMemoryQueue implements QueueInterface
         return $id;
     }
 
-    public function pop(): ?Envelope
+    public function pop(): Envelope|null
     {
         $this->promoteDueEnvelopes();
 
@@ -95,7 +94,7 @@ final class InMemoryQueue implements QueueInterface
     {
         $this->insert(
             $envelope
-                ->withAvailableAt($this->clock->now() + \max(0, $delaySeconds))
+                ->withAvailableAt($this->clock->now() + max(0, $delaySeconds))
                 ->withSequence($this->nextSequence())
         );
     }
@@ -109,6 +108,7 @@ final class InMemoryQueue implements QueueInterface
     {
         if ($envelope->isReady($this->clock->now())) {
             $this->ready->insert($envelope);
+
             return;
         }
 
@@ -119,7 +119,7 @@ final class InMemoryQueue implements QueueInterface
     {
         $now = $this->clock->now();
 
-        while (($top = $this->delayed->peek()) !== null && $top->isReady($now)) {
+        while (($top = $this->delayed->peek()) instanceof Envelope && $top->isReady($now)) {
             $this->delayed->extract();
             $this->ready->insert($top);
         }
@@ -138,6 +138,6 @@ final class InMemoryQueue implements QueueInterface
      */
     private function generateId(): string
     {
-        return \bin2hex(\random_bytes(16));
+        return bin2hex(random_bytes(16));
     }
 }

@@ -1,21 +1,15 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Unauthorized copying, modification, or distribution of this file,
- * via any medium, is strictly prohibited without prior written permission
- * from the copyright holder.
- *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
@@ -38,6 +32,7 @@ interface QueueInterface
      * Enqueue a job for immediate processing.
      *
      * @param int $priority higher runs first; defaults to normal priority
+     *
      * @return non-empty-string the generated envelope id
      */
     public function push(JobInterface $job, int $priority = 0): string;
@@ -46,7 +41,8 @@ interface QueueInterface
      * Enqueue a job that only becomes available after the given delay.
      *
      * @param int<0, max> $delaySeconds
-     * @param int $priority higher runs first; defaults to normal priority
+     * @param int         $priority     higher runs first; defaults to normal priority
+     *
      * @return non-empty-string the generated envelope id
      */
     public function later(int $delaySeconds, JobInterface $job, int $priority = 0): string;
@@ -54,7 +50,7 @@ interface QueueInterface
     /**
      * Remove and return the next ready envelope, or null when none is available.
      */
-    public function pop(): ?Envelope;
+    public function pop(): Envelope|null;
 
     /**
      * Re-enqueue an envelope for a later retry without resetting its identity.

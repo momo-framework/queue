@@ -1,17 +1,15 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
@@ -35,6 +33,11 @@ use Momo\Queue\Worker\Worker;
 use Momo\Queue\Worker\WorkerOptions;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ *
+ * @coversNothing
+ */
 final class WorkerTest extends TestCase
 {
     private MutableClock $clock;
@@ -49,8 +52,8 @@ final class WorkerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->clock  = new MutableClock(0);
-        $this->queue  = new InMemoryQueue($this->clock);
+        $this->clock = new MutableClock(0);
+        $this->queue = new InMemoryQueue($this->clock);
         $this->failed = new InMemoryFailedJobStore($this->clock);
         $this->events = new SpyEventBus();
         $this->worker = new Worker(
@@ -62,12 +65,12 @@ final class WorkerTest extends TestCase
         );
     }
 
-    public function testRunOnceReturnsFalseWhenQueueEmpty(): void
+    public function test_run_once_returns_false_when_queue_empty(): void
     {
         self::assertFalse($this->worker->runOnce());
     }
 
-    public function testSuccessfulJobRunsAndEmitsEvents(): void
+    public function test_successful_job_runs_and_emits_events(): void
     {
         $job = new RecordingJob();
         $this->queue->push($job);
@@ -80,7 +83,7 @@ final class WorkerTest extends TestCase
         self::assertSame(0, $this->events->countOf(JobFailed::class));
     }
 
-    public function testTransientFailureIsRetriedUntilSuccess(): void
+    public function test_transient_failure_is_retried_until_success(): void
     {
         $job = new FlakyJob(failTimes: 2);
         $this->queue->push($job);
@@ -94,7 +97,7 @@ final class WorkerTest extends TestCase
         self::assertSame(3, $this->events->countOf(JobProcessing::class));
     }
 
-    public function testExhaustedJobMovesToFailedStoreAndCallsFailed(): void
+    public function test_exhausted_job_moves_to_failed_store_and_calls_failed(): void
     {
         $job = new AlwaysFailingJob();
         $this->queue->push($job);
@@ -113,7 +116,7 @@ final class WorkerTest extends TestCase
         self::assertSame(3, $this->events->countOf(JobProcessing::class));
     }
 
-    public function testWorkerSurvivesJobWhoseFailedHandlerThrows(): void
+    public function test_worker_survives_job_whose_failed_handler_throws(): void
     {
         $this->queue->push(new HostileJob());
 
@@ -123,7 +126,7 @@ final class WorkerTest extends TestCase
         self::assertSame(1, $this->events->countOf(JobFailed::class));
     }
 
-    public function testMaxJobsLimitStopsTheLoop(): void
+    public function test_max_jobs_limit_stops_the_loop(): void
     {
         $this->queue->push(new RecordingJob());
         $this->queue->push(new RecordingJob());

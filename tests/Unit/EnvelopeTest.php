@@ -1,17 +1,15 @@
 <?php
 
 /**
- * Part of Momo Framework.
+ * This file is part of Momo Framework.
  *
- * © Momo Framework
+ * (c) Vahe Sargsyan <w33bvGL>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * @author    Vahe Sargsyan <w33bvGL>
- * @copyright Momo Framework
- * @license   AGPL-3.0-or-later <https://www.gnu.org/licenses/agpl-3.0.html>
- * @link      https://github.com/momo-framework
+ * @license AGPL-3.0-or-later
+ * @link    https://gitlab.com/anidzen/momo
  */
 
 declare(strict_types=1);
@@ -22,9 +20,14 @@ use Momo\Queue\Queue\Envelope;
 use Momo\Queue\Tests\Fixtures\RecordingJob;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ *
+ * @coversNothing
+ */
 final class EnvelopeTest extends TestCase
 {
-    public function testIsReadyComparesAgainstAvailability(): void
+    public function test_is_ready_compares_against_availability(): void
     {
         $envelope = $this->envelope(availableAt: 100);
 
@@ -33,17 +36,17 @@ final class EnvelopeTest extends TestCase
         self::assertTrue($envelope->isReady(101));
     }
 
-    public function testWithAttemptsProducesNewImmutableCopy(): void
+    public function test_with_attempts_produces_new_immutable_copy(): void
     {
         $envelope = $this->envelope(availableAt: 0);
-        $updated  = $envelope->withAttempts(5);
+        $updated = $envelope->withAttempts(5);
 
         self::assertSame(0, $envelope->attempts);
         self::assertSame(5, $updated->attempts);
         self::assertSame($envelope->id, $updated->id);
     }
 
-    public function testWithAvailableAtAndSequenceCopy(): void
+    public function test_with_available_at_and_sequence_copy(): void
     {
         $envelope = $this->envelope(availableAt: 0);
 
