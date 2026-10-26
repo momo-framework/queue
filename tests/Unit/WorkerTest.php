@@ -16,124 +16,129 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Tests\Unit;
 
-use Momo\Queue\Backoff\ConstantBackoffPolicy;
-use Momo\Queue\Events\JobFailed;
-use Momo\Queue\Events\JobProcessed;
-use Momo\Queue\Events\JobProcessing;
-use Momo\Queue\FailedJob\InMemoryFailedJobStore;
-use Momo\Queue\Queue\InMemoryQueue;
-use Momo\Queue\Support\MutableClock;
-use Momo\Queue\Tests\Fixtures\AlwaysFailingJob;
-use Momo\Queue\Tests\Fixtures\FlakyJob;
-use Momo\Queue\Tests\Fixtures\HostileJob;
-use Momo\Queue\Tests\Fixtures\RecordingJob;
-use Momo\Queue\Tests\Fixtures\SpyEventBus;
-use Momo\Queue\Worker\NullSleeper;
-use Momo\Queue\Worker\Worker;
-use Momo\Queue\Worker\WorkerOptions;
+use Momo\Queue\Dispatcher;
+use Momo\Queue\Envelope;
+use Momo\Queue\Handlers;
+use Momo\Queue\Job;
+use Momo\Queue\Tests\Fixtures\Billing\Application\SendInvoice;
+use Momo\Queue\Tests\Fixtures\Billing\Presentation\Queue\SendInvoiceHandler;
+use Momo\Queue\Transport\MemoryTransport;
+use Momo\Queue\Worker;
+use Momo\Queue\WorkerOptions;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
- *
- * @coversNothing
  */
+#[CoversClass(Worker::class)]
+#[CoversClass(Dispatcher::class)]
+#[CoversClass(MemoryTransport::class)]
+#[CoversClass(Envelope::class)]
+#[CoversClass(Job::class)]
+#[CoversClass(Handlers::class)]
 final class WorkerTest extends TestCase
 {
-    private MutableClock $clock;
+    private int $now = 1_000;
 
-    private InMemoryQueue $queue;
+    private MemoryTransport $transport;
 
-    private InMemoryFailedJobStore $failed;
-
-    private SpyEventBus $events;
-
-    private Worker $worker;
+    private Handlers $handlers;
 
     protected function setUp(): void
     {
-        $this->clock = new MutableClock(0);
-        $this->queue = new InMemoryQueue($this->clock);
-        $this->failed = new InMemoryFailedJobStore($this->clock);
-        $this->events = new SpyEventBus();
-        $this->worker = new Worker(
-            $this->queue,
-            $this->failed,
-            new ConstantBackoffPolicy(0),
-            new NullSleeper(),
-            $this->events,
-        );
+        SendInvoiceHandler::$sent = [];
+        $this->transport = new MemoryTransport(fn (): int => $this->now);
+        $this->handlers = new Handlers([new SendInvoiceHandler()]);
     }
 
-    public function test_run_once_returns_false_when_queue_empty(): void
+    #[Test]
+    public function without_a_transport_the_handler_runs_on_dispatch(): void
     {
-        self::assertFalse($this->worker->runOnce());
+        new Dispatcher(null, $this->handlers)->dispatch(new SendInvoice(7));
+
+        self::assertSame([7], SendInvoiceHandler::$sent);
     }
 
-    public function test_successful_job_runs_and_emits_events(): void
+    #[Test]
+    public function a_dispatched_job_goes_to_the_queue_of_its_attribute_and_runs_in_the_worker(): void
     {
-        $job = new RecordingJob();
-        $this->queue->push($job);
+        $queue = new Dispatcher($this->transport, $this->handlers);
+        $queue->dispatch(new SendInvoice(1));
+        $queue->dispatch(new SendInvoice(2), delay: 60);
 
-        self::assertTrue($this->worker->runOnce());
-        self::assertSame(1, $job->runs);
-        self::assertSame(0, $this->queue->size());
-        self::assertSame(1, $this->events->countOf(JobProcessing::class));
-        self::assertSame(1, $this->events->countOf(JobProcessed::class));
-        self::assertSame(0, $this->events->countOf(JobFailed::class));
+        self::assertSame(2, $this->transport->size('mail'));
+        self::assertSame(1, $this->worker()->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true)));
+
+        $this->now += 60;
+        $this->worker()->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true));
+
+        self::assertSame([1, 2], SendInvoiceHandler::$sent);
     }
 
-    public function test_transient_failure_is_retried_until_success(): void
+    #[Test]
+    public function a_failing_job_is_retried_then_kept_as_failed_and_can_be_retried(): void
     {
-        $job = new FlakyJob(failTimes: 2);
-        $this->queue->push($job);
+        $log = [];
+        new Dispatcher($this->transport, $this->handlers)->dispatch(new SendInvoice(3, fail: true));
+        $worker = new Worker($this->transport, $this->handlers, static function (string $status, Envelope $e) use (&$log): void {
+            $log[] = $status . ' #' . $e->attempts;
+        });
 
-        $this->worker->run(new WorkerOptions(stopWhenEmpty: true));
+        $worker->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true));
 
-        self::assertSame(3, $job->attempts);
-        self::assertSame(0, $this->queue->size());
-        self::assertSame([], $this->failed->all());
-        self::assertSame(1, $this->events->countOf(JobProcessed::class));
-        self::assertSame(3, $this->events->countOf(JobProcessing::class));
+        self::assertSame(['retried #1', 'failed #2'], $log);
+        self::assertCount(1, $this->transport->failed());
+        self::assertStringContainsString('SMTP refused', $this->transport->failed()[0]->error);
+
+        self::assertTrue($this->transport->retry($this->transport->failed()[0]->envelope->id));
+        self::assertSame([], $this->transport->failed());
+        self::assertSame(1, $this->transport->size('mail'));
     }
 
-    public function test_exhausted_job_moves_to_failed_store_and_calls_failed(): void
+    #[Test]
+    public function a_job_whose_worker_died_reappears_after_its_visibility_timeout(): void
     {
-        $job = new AlwaysFailingJob();
-        $this->queue->push($job);
+        new Dispatcher($this->transport, $this->handlers)->dispatch(new SendInvoice(4));
 
-        $this->worker->run(new WorkerOptions(stopWhenEmpty: true));
+        self::assertInstanceOf(Envelope::class, $this->transport->pop('mail', 30));
+        self::assertNull($this->transport->pop('mail', 30));
 
-        self::assertSame(1, $job->failedCalls);
-        self::assertNotNull($job->lastException);
-        self::assertSame(0, $this->queue->size());
-
-        $records = $this->failed->all();
-        self::assertCount(1, $records);
-        self::assertSame(AlwaysFailingJob::class, $records[0]->jobClass);
-        self::assertSame(3, $records[0]->attempts);
-        self::assertSame(1, $this->events->countOf(JobFailed::class));
-        self::assertSame(3, $this->events->countOf(JobProcessing::class));
+        $this->now += 31;
+        $again = $this->transport->pop('mail', 30);
+        self::assertInstanceOf(Envelope::class, $again);
+        self::assertSame(2, $again->attempts);
     }
 
-    public function test_worker_survives_job_whose_failed_handler_throws(): void
+    #[Test]
+    public function backoff_follows_the_attribute_then_repeats_its_last_value(): void
     {
-        $this->queue->push(new HostileJob());
+        $job = new Job(backoff: [5, 30]);
 
-        $this->worker->run(new WorkerOptions(stopWhenEmpty: true));
-
-        self::assertCount(1, $this->failed->all());
-        self::assertSame(1, $this->events->countOf(JobFailed::class));
+        self::assertSame([5, 30, 30], [$job->delayBefore(2), $job->delayBefore(3), $job->delayBefore(4)]);
+        self::assertLessThanOrEqual(8, new Job()->delayBefore(3));
     }
 
-    public function test_max_jobs_limit_stops_the_loop(): void
+    #[Test]
+    #[RequiresPhpExtension('swoole')]
+    public function jobs_run_concurrently_in_coroutines(): void
     {
-        $this->queue->push(new RecordingJob());
-        $this->queue->push(new RecordingJob());
-        $this->queue->push(new RecordingJob());
+        $queue = new Dispatcher($this->transport, $this->handlers);
+        for ($i = 0; $i < 10; $i++) {
+            $queue->dispatch(new SendInvoice($i, takes: 0.1));
+        }
 
-        $this->worker->run(new WorkerOptions(maxJobs: 2));
+        $started = microtime(true);
+        $done = $this->worker()->run(new WorkerOptions(queues: ['mail'], concurrency: 5, stopWhenEmpty: true, idle: 0.01));
 
-        self::assertSame(1, $this->queue->size());
+        self::assertSame(10, $done);
+        self::assertLessThan(0.35, microtime(true) - $started);
+    }
+
+    private function worker(): Worker
+    {
+        return new Worker($this->transport, $this->handlers);
     }
 }

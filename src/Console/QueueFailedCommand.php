@@ -16,46 +16,35 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Console;
 
-use function date;
-
 use Momo\Console\Attributes\AsCommand;
 use Momo\Console\Command;
-use Momo\Queue\Contracts\FailedJobStoreInterface;
+use Momo\Queue\Contracts\Transport;
+use Momo\Queue\FailedJob;
 
-/**
- * Lists jobs that exhausted their retry budget and landed in the dead-letter store.
- */
-#[AsCommand(name: 'queue:failed', description: 'List jobs that failed permanently')]
+#[AsCommand(name: 'queue:failed', description: 'List jobs that used up their attempts')]
 final class QueueFailedCommand extends Command
 {
-    public function __construct(
-        private readonly FailedJobStoreInterface $store,
-    ) {
+    public function __construct(private readonly Transport|null $transport)
+    {
         parent::__construct();
     }
 
     protected function handle(): int
     {
-        $records = $this->store->all();
-
-        if ($records === []) {
-            $this->success('No failed jobs.');
+        $failed = $this->transport?->failed() ?? [];
+        if ($failed === []) {
+            $this->info('No failed jobs.');
 
             return self::SUCCESS;
         }
 
-        $rows = [];
-        foreach ($records as $record) {
-            $rows[] = [
-                $record->id,
-                $record->jobClass,
-                (string) $record->attempts,
-                $record->exceptionClass,
-                date('Y-m-d H:i:s', $record->failedAt),
-            ];
-        }
-
-        $this->table(['ID', 'Job', 'Attempts', 'Exception', 'Failed At'], $rows);
+        $this->table(['Id', 'Queue', 'Job', 'Failed at', 'Error'], array_map(static fn (FailedJob $f): array => [
+            $f->envelope->id,
+            $f->envelope->queue,
+            $f->envelope->class,
+            date('Y-m-d H:i:s', $f->failedAt),
+            mb_strimwidth($f->error, 0, 80, '...'),
+        ], $failed));
 
         return self::SUCCESS;
     }

@@ -18,7 +18,4 @@ namespace Momo\Queue\Exceptions;
 
 use RuntimeException;
 
-/**
- * Base type for every exception thrown by the queue package.
- */
-class QueueException extends RuntimeException {}
+final class QueueException extends RuntimeException {}

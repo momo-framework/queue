@@ -21,3 +21,7 @@ parameters:
 
     bootstrapFiles:
         - vendor/autoload.php
+
+    scanDirectories:
+        - vendor/swoole/ide-helper/src/swoole
+        - vendor/swoole/ide-helper/src/swoole_library/src/core

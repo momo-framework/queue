@@ -1,196 +1,126 @@
 <div align="center">
-  <img src="https://avatars.githubusercontent.com/u/255415480?s=200&v=4" alt="Momo Framework" width="120" height="120" />
+  <img src="https://gitlab.com/anidzen/design-assets/-/raw/main/anidzen/TRANSPARENT_WHITE_RING.png" height="144px" alt="Anidzen Labs">
+  <h1>
+    anidzen/momo-queue
+  </h1>
+</div>
 
-  <h1>anidzen/momo-queue</h1>
+<div align="center">
 
-  <p>
-      Корутино-совместимая приоритетная очередь с подключаемыми стратегиями backoff для <a href="https://gitlab.com/anidzen/momo">Momo Framework</a>.
-  </p>
+  <a href="https://gitlab.com/anidzen/momo/packages/queue/-/pipelines">
+    <img src="https://gitlab.com/anidzen/momo/packages/queue/badges/main/pipeline.svg" alt="CI/CD"/>
+  </a>
+  <img src="https://img.shields.io/badge/PHP-8.5+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.5+"/>
+  <img src="https://img.shields.io/badge/License-AGPL--3.0-lightgrey?style=flat-square" alt="License"/>
 
-  <p>
-    <img src="https://gitlab.com/anidzen/momo" alt="CI" />
-    <img src="https://img.shields.io/badge/php-%3E%3D8.5-8892bf.svg" alt="PHP Version" />
-    <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License" />
-    <img src="https://img.shields.io/badge/coverage-100%25-brightgreen.svg" alt="Coverage" />
-    <img src="https://img.shields.io/badge/PHPStan-level%2010-brightblue.svg" alt="PHPStan" />
-  </p>
-  <p>🇷🇺 Русская версия &nbsp;·&nbsp; 🇬🇧 <a href="README.md">English</a></p>
+</div>
+
+<div align="center">
+  <b>Очередь задач для Momo с транспортами Redis и база данных.</b><br/>
+  Обработчики лежат в Presentation/Queue модуля, один воркер выполняет много задач сразу в корутинах.
+</div>
+
+<div align="center">
+  <a href="README.md">🇬🇧 English</a> · 🇷🇺 Русский · <a href="README.hy.md">🇦🇲 Հայերեն</a>
 </div>
 
 ---
 
-## Обзор
+## Возможности
 
-`anidzen/momo-queue` предоставляет корутино-совместимый движок очереди задач, основанный на приоритетном min-heap. Джобы объявляют бюджет повторных попыток и приоритет диспатча через единственный атрибут `#[AsJob]`. `Worker` непрерывно опустошает очередь, повторяя неудачи с настраиваемым backoff и перемещая исчерпавшие попытки джобы в хранилище упавших задач.
+- Задача это объект со значениями, её обработчик это `JobHandler` с `__invoke(SendInvoice $job)` в `Presentation/Queue/` модуля, он находится по типу задачи
+- `#[Job(queue: 'mail', attempts: 5, backoff: [10, 60, 300])]` задаёт очередь, число попыток и паузы между ними; по умолчанию экспонента с полным jitter
+- Транспорт `redis`: список готовых задач, отложенные и занятые в sorted set, каждый шаг одним Lua-скриптом, задача упавшего воркера возвращается через `retry_after` секунд
+- Транспорт `database`: задача, поставленная внутри транзакции, коммитится вместе с данными; воркеры берут задачи через `FOR UPDATE SKIP LOCKED`
+- `sync` выполняет обработчик сразу при постановке, `memory` держит задачи в процессе для тестов
+- `queue:work --concurrency=20`: двадцать задач сразу в одном процессе, по SIGTERM текущие доделываются
+- Упавшие задачи сохраняются: `queue:failed`, `queue:retry <id>|all`
+- `queue:list` показывает все задачи с обработчиком, очередью и числом попыток
+- `make:job Billing SendInvoice` создаёт задачу и её обработчик
 
-Пакет интегрируется с `anidzen/momo-events`: доменные события `JobProcessing`, `JobProcessed` и `JobFailed` публикуются на каждом переходе жизненного цикла, обеспечивая телеметрию и уведомления без привязки к воркеру.
+## Зачем
 
-`InMemoryQueue` — встроенный драйвер. Он использует два бинарных heap'а: один для готовых задач, упорядоченных по приоритету, и один для отложенных, упорядоченных по времени доступности. Безопасен в рамках кооперативного планировщика Swoole, так как каждая мутирующая операция завершается без точки приостановки I/O.
+Воркер, который выполняет одну задачу за раз, простаивает, пока задача ждёт HTTP или SQL. С корутинами тот же процесс держит двадцать задач на одном CPU. Обработчик лежит рядом с контроллерами, потому что очередь это ещё один вход в модуль, а задача остаётся объектом-значением, и код, который её ставит, не зависит от кода, который её выполняет.
 
-## Требования
-
-- PHP >= 8.5
-- `anidzen/momo-kernel`
-- `anidzen/momo-events`
-- `ext-swoole` (опционально — только для `CoroutineSleeper`)
-
-## Установка
+## Быстрый старт
 
 ```bash
-composer require anidzen/momo-queue
+composer require anidzen/momo-queue anidzen/momo-redis
+momo make:job Billing SendInvoice
 ```
 
-## Ключевые концепции
-
-### `#[AsJob]` — параметры джоба
-
-```php
-use Momo\Queue\Attributes\AsJob;
-
-#[AsJob(maxAttempts: 5, priority: 10)]
+```dotenv
+QUEUE_CONNECTION=redis
 ```
 
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|--------------|----------|
-| `maxAttempts` | `positive-int` | `3` | Всего попыток, включая первый запуск |
-| `priority` | `int` | `0` | Большее значение — более ранний диспатч |
-
-### `AbstractJob` — базовый класс
-
-Расширьте `Momo\Queue\Job\AbstractJob` и реализуйте `handle(): void`. Опционально переопределите `failed(Throwable $exception): void` для компенсирующих действий после исчерпания бюджета попыток.
-
-### `InMemoryQueue` — встроенный драйвер
-
-Основан на двух бинарных heap'ах. `push()` ставит в очередь немедленно; `later()` — с задержкой. `pop()` продвигает просроченные отложенные задачи перед возвратом envelope с наивысшим приоритетом.
-
-### Стратегии backoff
-
-Три встроенные политики реализуют `BackoffPolicyInterface`:
-
-| Класс | Поведение |
-|-------|-----------|
-| `ExponentialBackoffPolicy` | `base * multiplier^(attempt-2)`, ограниченный `maxSeconds` |
-| `ConstantBackoffPolicy` | Фиксированная задержка для каждой попытки |
-| `FullJitterBackoffPolicy` | Случайная задержка в `[0, exponential_delay]` |
-
-Джобы могут переопределить глобальную политику для своего класса, реализуя `HasBackoffPolicyInterface`.
-
-### `Worker` — цикл обработки
-
-`Worker::run(WorkerOptions)` опустошает очередь до остановки, достижения лимита задач или превышения памяти. `WorkerOptions::once()` — вспомогательная фабрика для обработки одной задачи и выхода.
-
-### `CoroutineSleeper` — Swoole-совместимое ожидание
-
-При загруженном `ext-swoole` простой использует `Swoole\Coroutine::sleep()` для передачи управления планировщику. Без Swoole откатывается на `usleep()`.
-
-## Использование
-
-### Определение джоба
-
 ```php
-use Momo\Queue\Attributes\AsJob;
-use Momo\Queue\Job\AbstractJob;
+namespace App\Billing\Application;
 
-#[AsJob(maxAttempts: 5, priority: 10)]
-final class SendOrderReceipt extends AbstractJob
+use Momo\Queue\Job;
+
+#[Job(queue: 'mail', attempts: 5)]
+final readonly class SendInvoice
 {
-    public function __construct(
-        private readonly string $orderId,
-    ) {}
+    public function __construct(public int $invoiceId) {}
+}
+```
 
-    public function handle(): void
-    {
-        // доставить квитанцию
-    }
+```php
+namespace App\Billing\Presentation\Queue;
 
-    public function failed(\Throwable $e): void
+use App\Billing\Application\SendInvoice;
+use App\Billing\Application\InvoiceMailer;
+use Momo\Queue\Contracts\JobHandler;
+
+final readonly class SendInvoiceHandler implements JobHandler
+{
+    public function __construct(private InvoiceMailer $mailer) {}
+
+    public function __invoke(SendInvoice $job): void
     {
-        // компенсирующее действие после исчерпания бюджета попыток
-        Log::critical("Не удалось доставить квитанцию для заказа {$this->orderId}", ['error' => $e->getMessage()]);
+        $this->mailer->send($job->invoiceId);
     }
 }
 ```
 
-### Диспатч задач
-
 ```php
-use Momo\Queue\Contracts\QueueInterface;
-
-// Поставить в очередь немедленно с явным приоритетом
-$queue->push(new SendOrderReceipt($orderId), priority: 10);
-
-// Поставить в очередь с задержкой (в секундах)
-$queue->later(delaySeconds: 30, job: new SendOrderReceipt($orderId));
-
-// Используется приоритет из атрибута #[AsJob]
-$queue->push(new SendOrderReceipt($orderId));
+$this->queue->dispatch(new SendInvoice($invoice->id));
+$this->queue->dispatch(new SendInvoice($invoice->id), delay: 3600);
 ```
-
-### Запуск воркера
 
 ```bash
-php momo queue:work             # Долгоживущий воркер
-php momo queue:work --once      # Обработать одну задачу и выйти
-php momo queue:failed           # Инспекция хранилища упавших задач
+momo queue:work --queue=mail,default --concurrency=20
 ```
 
-Или программно:
+## Настройка
 
-```php
-use Momo\Queue\Worker\Worker;
-use Momo\Queue\Worker\WorkerOptions;
+- `QUEUE_CONNECTION`, по умолчанию `sync`: `sync`, `memory`, `redis` или `database`
+- `QUEUE_REDIS_CONNECTION`, по умолчанию `default`: соединение из `config/redis.php`
+- `QUEUE_DB_CONNECTION`: соединение из `config/database.php`, если пусто, основное
+- `config/queue.php`: `queue` (очередь по умолчанию), `retry_after` (сколько секунд взятая задача скрыта)
 
-$worker->run(new WorkerOptions(
-    maxJobs: 0,           // 0 = без ограничений
-    sleepSeconds: 1,      // интервал простоя
-    stopWhenEmpty: false, // продолжать после опустошения очереди
-    memoryLimitMb: 256,   // перезапуск при превышении RSS
-));
-
-// Обработать ровно одну задачу и вернуться:
-$worker->run(WorkerOptions::once());
-```
-
-### Кастомный backoff для отдельного джоба
-
-```php
-use Momo\Queue\Backoff\ExponentialBackoffPolicy;
-use Momo\Queue\Contracts\BackoffPolicyInterface;
-use Momo\Queue\Contracts\HasBackoffPolicyInterface;
-use Momo\Queue\Job\AbstractJob;
-
-#[AsJob(maxAttempts: 10)]
-final class ImportLargeFile extends AbstractJob implements HasBackoffPolicyInterface
-{
-    public function handle(): void { /* ... */ }
-
-    public function backoffPolicy(): BackoffPolicyInterface
-    {
-        return new ExponentialBackoffPolicy(baseSeconds: 30, maxSeconds: 3600, multiplier: 2.0);
-    }
-}
-```
-
-### События жизненного цикла
-
-```php
-use Momo\Events\Contracts\EventBusInterface;
-use Momo\Queue\Events\JobFailed;
-use Momo\Queue\Events\JobProcessed;
-use Momo\Queue\Events\JobProcessing;
-
-// Подписка в ServiceProvider::boot()
-$bus->subscribe(JobProcessing::class, new LogJobStartedListener());
-$bus->subscribe(JobProcessed::class,  new RecordMetricsListener());
-$bus->subscribe(JobFailed::class,     new AlertOnFailureListener());
-```
+Транспорт `database` приносит таблицы `jobs` и `failed_jobs`, их создаёт `momo migrate`.
 
 ## Разработка
 
 ```bash
-composer lint
-composer stan
-composer rector:check
-composer test
-composer ci
+composer install --ignore-platform-req=ext-redis
+composer check
 ```
+
+Тесты на Redis запускаются, если задан `REDIS_HOST`, транспорт базы проверяется на SQLite.
+
+## Статус
+
+0.2. Публичный API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+
+## Лицензия
+
+[AGPL-3.0-or-later](LICENSE).
+
+---
+
+<div align="center">
+  <sub>© 2024 - 2026 Anidzen Labs. Innovation through simplicity.</sub><br/>
+  <sub>Built by <a href="https://vahe-sargsyan.com/">w33bvGL</a></sub>
+</div>

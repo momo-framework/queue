@@ -1,196 +1,126 @@
 <div align="center">
-  <img src="https://avatars.githubusercontent.com/u/255415480?s=200&v=4" alt="Momo Framework" width="120" height="120" />
+  <img src="https://gitlab.com/anidzen/design-assets/-/raw/main/anidzen/TRANSPARENT_WHITE_RING.png" height="144px" alt="Anidzen Labs">
+  <h1>
+    anidzen/momo-queue
+  </h1>
+</div>
 
-  <h1>anidzen/momo-queue</h1>
+<div align="center">
 
-  <p>
-      Coroutine-aware priority queue with pluggable backoff strategies for <a href="https://gitlab.com/anidzen/momo">Momo Framework</a>.
-  </p>
+  <a href="https://gitlab.com/anidzen/momo/packages/queue/-/pipelines">
+    <img src="https://gitlab.com/anidzen/momo/packages/queue/badges/main/pipeline.svg" alt="CI/CD"/>
+  </a>
+  <img src="https://img.shields.io/badge/PHP-8.5+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.5+"/>
+  <img src="https://img.shields.io/badge/License-AGPL--3.0-lightgrey?style=flat-square" alt="License"/>
 
-  <p>
-    <img src="https://gitlab.com/anidzen/momo" alt="CI" />
-    <img src="https://img.shields.io/badge/php-%3E%3D8.5-8892bf.svg" alt="PHP Version" />
-    <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License" />
-    <img src="https://img.shields.io/badge/coverage-100%25-brightgreen.svg" alt="Coverage" />
-    <img src="https://img.shields.io/badge/PHPStan-level%2010-brightblue.svg" alt="PHPStan" />
-  </p>
-  <p>🇬🇧 English &nbsp;·&nbsp; 🇷🇺 <a href="README.ru.md">Русская версия</a></p>
+</div>
+
+<div align="center">
+  <b>Job queue for Momo with Redis and database transports.</b><br/>
+  Handlers live in each module's Presentation/Queue, one worker runs many jobs at once in coroutines.
+</div>
+
+<div align="center">
+  🇬🇧 English · <a href="README.ru.md">🇷🇺 Русский</a> · <a href="README.hy.md">🇦🇲 Հայերեն</a>
 </div>
 
 ---
 
-## Overview
+## Features
 
-`anidzen/momo-queue` provides a coroutine-aware job queue engine backed by a priority min-heap. Jobs declare their retry budget and dispatch priority through a single `#[AsJob]` attribute. The `Worker` drains the queue in a tight loop, retrying failures with configurable backoff and moving exhausted jobs to a failed-job store.
+- A job is a plain object of values, its handler a `JobHandler` with `__invoke(SendInvoice $job)` in `Presentation/Queue/` of a module, found by the job type
+- `#[Job(queue: 'mail', attempts: 5, backoff: [10, 60, 300])]` sets queue, attempts and retry delays; the default backoff is exponential with full jitter
+- `redis` transport: ready list, delayed and reserved sorted sets, every step one Lua script, a job of a dead worker returns after `retry_after` seconds
+- `database` transport: a job dispatched inside a transaction commits with your data; workers take jobs with `FOR UPDATE SKIP LOCKED`
+- `sync` runs the handler on dispatch, `memory` keeps jobs in the process for tests
+- `queue:work --concurrency=20`: twenty jobs at once in one process, SIGTERM lets them finish
+- Failed jobs are kept: `queue:failed`, `queue:retry <id>|all`
+- `queue:list` shows every job with its handler, queue and attempts
+- `make:job Billing SendInvoice` writes the job and its handler
 
-The package integrates with `anidzen/momo-events`: `JobProcessing`, `JobProcessed`, and `JobFailed` domain events are published on every lifecycle transition, enabling telemetry and notifications without coupling them to the worker itself.
+## Why
 
-`InMemoryQueue` is the built-in driver. It uses two binary heaps — one for ready jobs ordered by priority, one for delayed jobs ordered by availability time — and is safe under Swoole's cooperative scheduler because every mutating operation completes without an I/O suspension point.
+A worker process that runs one job at a time idles while each job waits on HTTP or SQL. With coroutines the same process keeps twenty jobs in flight on one CPU. The handler sits next to the controllers because a queue is one more way into a module, and the job stays a value object so the code that dispatches it never depends on the code that runs it.
 
-## Requirements
-
-- PHP >= 8.5
-- `anidzen/momo-kernel`
-- `anidzen/momo-events`
-- `ext-swoole` (optional — required only for `CoroutineSleeper`)
-
-## Installation
+## Quick start
 
 ```bash
-composer require anidzen/momo-queue
+composer require anidzen/momo-queue anidzen/momo-redis
+momo make:job Billing SendInvoice
 ```
 
-## Core Concepts
-
-### `#[AsJob]` — declare job parameters
-
-```php
-use Momo\Queue\Attributes\AsJob;
-
-#[AsJob(maxAttempts: 5, priority: 10)]
+```dotenv
+QUEUE_CONNECTION=redis
 ```
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `maxAttempts` | `positive-int` | `3` | Total attempts including the initial run |
-| `priority` | `int` | `0` | Higher value dispatches first |
-
-### `AbstractJob` — the base class
-
-Extend `Momo\Queue\Job\AbstractJob` and implement `handle(): void`. Optionally override `failed(Throwable $exception): void` for compensating actions after the retry budget is exhausted.
-
-### `InMemoryQueue` — the built-in driver
-
-Backed by two binary heaps. `push()` enqueues immediately; `later()` enqueues with a delay. `pop()` promotes due delayed jobs before returning the highest-priority ready envelope.
-
-### Backoff policies
-
-Three built-in policies implement `BackoffPolicyInterface`:
-
-| Class | Behaviour |
-|-------|-----------|
-| `ExponentialBackoffPolicy` | `base * multiplier^(attempt-2)`, capped at `maxSeconds` |
-| `ConstantBackoffPolicy` | Fixed delay for every retry |
-| `FullJitterBackoffPolicy` | Random delay in `[0, exponential_delay]` |
-
-Jobs may override the global policy per-class by implementing `HasBackoffPolicyInterface`.
-
-### `Worker` — the processing loop
-
-`Worker::run(WorkerOptions)` drains the queue until stopped, the job limit is reached, or memory is exceeded. `WorkerOptions::once()` is a convenience factory that processes a single job and exits.
-
-### `CoroutineSleeper` — Swoole-aware idle wait
-
-When `ext-swoole` is loaded, idle waits call `Swoole\Coroutine::sleep()` to yield the scheduler. Without Swoole it falls back to `usleep()`.
-
-## Usage
-
-### Defining a job
-
 ```php
-use Momo\Queue\Attributes\AsJob;
-use Momo\Queue\Job\AbstractJob;
+namespace App\Billing\Application;
 
-#[AsJob(maxAttempts: 5, priority: 10)]
-final class SendOrderReceipt extends AbstractJob
+use Momo\Queue\Job;
+
+#[Job(queue: 'mail', attempts: 5)]
+final readonly class SendInvoice
 {
-    public function __construct(
-        private readonly string $orderId,
-    ) {}
+    public function __construct(public int $invoiceId) {}
+}
+```
 
-    public function handle(): void
-    {
-        // deliver the receipt
-    }
+```php
+namespace App\Billing\Presentation\Queue;
 
-    public function failed(\Throwable $e): void
+use App\Billing\Application\SendInvoice;
+use App\Billing\Application\InvoiceMailer;
+use Momo\Queue\Contracts\JobHandler;
+
+final readonly class SendInvoiceHandler implements JobHandler
+{
+    public function __construct(private InvoiceMailer $mailer) {}
+
+    public function __invoke(SendInvoice $job): void
     {
-        // compensating action after retry budget is exhausted
-        Log::critical("Receipt delivery failed for order {$this->orderId}", ['error' => $e->getMessage()]);
+        $this->mailer->send($job->invoiceId);
     }
 }
 ```
 
-### Dispatching jobs
-
 ```php
-use Momo\Queue\Contracts\QueueInterface;
-
-// Enqueue immediately with explicit priority
-$queue->push(new SendOrderReceipt($orderId), priority: 10);
-
-// Enqueue with a delay (seconds)
-$queue->later(delaySeconds: 30, job: new SendOrderReceipt($orderId));
-
-// Priority from the #[AsJob] attribute is used when not overriding here
-$queue->push(new SendOrderReceipt($orderId));
+$this->queue->dispatch(new SendInvoice($invoice->id));
+$this->queue->dispatch(new SendInvoice($invoice->id), delay: 3600);
 ```
-
-### Running a worker
 
 ```bash
-php momo queue:work             # Long-running worker
-php momo queue:work --once      # Process a single job and exit
-php momo queue:failed           # Inspect the dead-letter store
+momo queue:work --queue=mail,default --concurrency=20
 ```
 
-Or programmatically:
+## Configuration
 
-```php
-use Momo\Queue\Worker\Worker;
-use Momo\Queue\Worker\WorkerOptions;
+- `QUEUE_CONNECTION`, default `sync`: `sync`, `memory`, `redis` or `database`
+- `QUEUE_REDIS_CONNECTION`, default `default`: a connection of `config/redis.php`
+- `QUEUE_DB_CONNECTION`: a connection of `config/database.php`, the default one when empty
+- `config/queue.php`: `queue` (default queue name), `retry_after` (seconds a taken job stays hidden)
 
-$worker->run(new WorkerOptions(
-    maxJobs: 0,           // 0 = unlimited
-    sleepSeconds: 1,      // idle polling interval
-    stopWhenEmpty: false, // keep running after queue drains
-    memoryLimitMb: 256,   // restart when RSS exceeds this
-));
-
-// Process exactly one job and return:
-$worker->run(WorkerOptions::once());
-```
-
-### Custom backoff per job
-
-```php
-use Momo\Queue\Backoff\ExponentialBackoffPolicy;
-use Momo\Queue\Contracts\BackoffPolicyInterface;
-use Momo\Queue\Contracts\HasBackoffPolicyInterface;
-use Momo\Queue\Job\AbstractJob;
-
-#[AsJob(maxAttempts: 10)]
-final class ImportLargeFile extends AbstractJob implements HasBackoffPolicyInterface
-{
-    public function handle(): void { /* ... */ }
-
-    public function backoffPolicy(): BackoffPolicyInterface
-    {
-        return new ExponentialBackoffPolicy(baseSeconds: 30, maxSeconds: 3600, multiplier: 2.0);
-    }
-}
-```
-
-### Lifecycle events
-
-```php
-use Momo\Events\Contracts\EventBusInterface;
-use Momo\Queue\Events\JobFailed;
-use Momo\Queue\Events\JobProcessed;
-use Momo\Queue\Events\JobProcessing;
-
-// Subscribe in a ServiceProvider::boot()
-$bus->subscribe(JobProcessing::class, new LogJobStartedListener());
-$bus->subscribe(JobProcessed::class,  new RecordMetricsListener());
-$bus->subscribe(JobFailed::class,     new AlertOnFailureListener());
-```
+The `database` transport brings its `jobs` and `failed_jobs` tables; `momo migrate` creates them.
 
 ## Development
 
 ```bash
-composer lint
-composer stan
-composer rector:check
-composer test
-composer ci
+composer install --ignore-platform-req=ext-redis
+composer check
 ```
+
+Tests against Redis run when `REDIS_HOST` is set, the database transport is tested on SQLite.
+
+## Status
+
+0.2. Public API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+
+## License
+
+[AGPL-3.0-or-later](LICENSE).
+
+---
+
+<div align="center">
+  <sub>© 2024 - 2026 Anidzen Labs. Innovation through simplicity.</sub><br/>
+  <sub>Built by <a href="https://vahe-sargsyan.com/">w33bvGL</a></sub>
+</div>

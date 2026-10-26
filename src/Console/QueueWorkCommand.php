@@ -16,79 +16,104 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Console;
 
-use function function_exists;
-use function is_numeric;
-use function max;
-
 use Momo\Console\Attributes\AsCommand;
 use Momo\Console\Attributes\Option;
 use Momo\Console\Command;
-use Momo\Queue\Contracts\WorkerInterface;
-use Momo\Queue\Worker\WorkerOptions;
+use Momo\Queue\Contracts\Transport;
+use Momo\Queue\Envelope;
+use Momo\Queue\Handlers;
+use Momo\Queue\Worker;
+use Momo\Queue\WorkerOptions;
+use Swoole\Process;
+use Throwable;
 
-use function pcntl_async_signals;
-use function pcntl_signal;
-
-use const SIGINT;
-use const SIGTERM;
-
-/**
- * Starts a long-running queue worker that drains pending jobs.
- */
-#[AsCommand(name: 'queue:work', description: 'Process queued jobs until stopped')]
-#[Option(name: 'once', description: 'Process a single job and exit', noValue: true)]
-#[Option(name: 'max-jobs', description: 'Exit after processing this many jobs (0 = unlimited)', default: '0')]
-#[Option(name: 'sleep', description: 'Seconds to wait when no job is ready', default: '1')]
-#[Option(name: 'memory', description: 'Restart threshold in MB (0 = no limit)', default: '256')]
+#[AsCommand(name: 'queue:work', description: 'Run queued jobs until stopped, several at once in coroutines')]
+#[Option(name: 'queue', description: 'Queues to poll in order, comma-separated', default: 'default')]
+#[Option(name: 'concurrency', description: 'Jobs run at once, one coroutine each', default: '1')]
+#[Option(name: 'max-jobs', description: 'Stop after this many jobs', default: '0')]
+#[Option(name: 'stop-when-empty', description: 'Stop when the queues are empty', noValue: true)]
+#[Option(name: 'memory', description: 'Stop above this many MB so the supervisor restarts the process', default: '256')]
 final class QueueWorkCommand extends Command
 {
     public function __construct(
-        private readonly WorkerInterface $worker,
+        private readonly Transport|null $transport,
+        private readonly Handlers $handlers,
+        private readonly int $visibility = 90,
     ) {
         parent::__construct();
     }
 
     protected function handle(): int
     {
-        $once = (bool) $this->option('once');
+        if (! $this->transport instanceof Transport) {
+            $this->error('QUEUE_CONNECTION is sync: jobs run when dispatched, there is nothing to work on. Set it to redis or database.');
+
+            return self::FAILURE;
+        }
+
+        $queues = array_values(array_filter(array_map(trim(...), explode(',', $this->optionText('queue', 'default'))), static fn (string $q): bool => $q !== ''));
         $options = new WorkerOptions(
-            maxJobs: $once ? 1 : max(0, $this->intOption('max-jobs')),
-            sleepSeconds: max(0, $this->intOption('sleep')),
-            stopWhenEmpty: $once,
-            memoryLimitMb: max(0, $this->intOption('memory')),
+            queues: $queues === [] ? ['default'] : $queues,
+            concurrency: max(1, $this->number('concurrency', 1)),
+            maxJobs: $this->number('max-jobs', 0),
+            stopWhenEmpty: $this->option('stop-when-empty') === true,
+            visibility: $this->visibility,
+            memoryMb: $this->number('memory', 256),
         );
 
-        $this->registerSignalHandlers();
+        $worker = new Worker($this->transport, $this->handlers, function (string $status, Envelope $e, Throwable|null $error, float $ms): void {
+            $line = sprintf('  <fg=gray>%s</>  %s  %s  <fg=gray>#%d %.0f ms</>', date('H:i:s'), match ($status) {
+                'processed' => '<fg=green>done</>',
+                'retried' => '<fg=yellow>retry</>',
+                default => '<fg=red>failed</>',
+            }, $e->class, $e->attempts, $ms);
+            $this->output->writeln($error instanceof Throwable ? $line . '  <fg=gray>' . $error->getMessage() . '</>' : $line);
+        });
 
-        $this->info($once ? 'Processing a single job…' : 'Queue worker started. Press Ctrl+C to stop.');
+        $this->trapSignals($worker);
+        $this->output->writeln(sprintf('  <options=bold>momo queue</>  <fg=gray>%s · %d at once</>', implode(', ', $options->queues), $options->concurrency));
 
-        $this->worker->run($options);
-
-        $this->success('Queue worker stopped cleanly.');
+        $done = $worker->run($options);
+        $this->output->writeln(sprintf('  <fg=gray>stopped after %d jobs</>', $done));
 
         return self::SUCCESS;
     }
 
-    private function intOption(string $name): int
+    private function optionText(string $name, string $default): string
     {
         $value = $this->option($name);
 
-        return is_numeric($value) ? (int) $value : 0;
+        return is_string($value) && $value !== '' ? $value : $default;
     }
 
-    private function registerSignalHandlers(): void
+    /**
+     * SIGTERM and SIGINT let the running jobs finish: Docker and Kubernetes
+     * send SIGTERM first and wait before killing.
+     */
+    private function trapSignals(Worker $worker): void
     {
-        if (! function_exists('pcntl_async_signals') || ! function_exists('pcntl_signal')) {
+        $stop = static function () use ($worker): void {
+            $worker->stop();
+        };
+
+        if (extension_loaded('swoole')) {
+            Process::signal(SIGTERM, $stop);
+            Process::signal(SIGINT, $stop);
+
             return;
         }
 
-        pcntl_async_signals(true);
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+            pcntl_signal(SIGTERM, $stop);
+            pcntl_signal(SIGINT, $stop);
+        }
+    }
 
-        $stop = function (): void {
-            $this->worker->stop();
-        };
+    private function number(string $name, int $default): int
+    {
+        $value = $this->option($name);
 
-        pcntl_signal(SIGTERM, $stop);
-        pcntl_signal(SIGINT, $stop);
+        return is_numeric($value) ? (int) $value : $default;
     }
 }
