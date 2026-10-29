@@ -61,7 +61,13 @@ final class QueueWorkCommand extends Command
             memoryMb: $this->number('memory', 256),
         );
 
-        $worker = new Worker($this->transport, $this->handlers, function (string $status, Envelope $e, Throwable|null $error, float $ms): void {
+        $worker = new Worker($this->transport, $this->handlers, function (string $status, Envelope|null $e, Throwable|null $error, float $ms): void {
+            if (! $e instanceof Envelope) {
+                $this->output->writeln(sprintf('  <fg=gray>%s</>  <fg=red>queue unreachable</>  <fg=gray>%s</>', date('H:i:s'), $error?->getMessage() ?? ''));
+
+                return;
+            }
+
             $line = sprintf('  <fg=gray>%s</>  %s  %s  <fg=gray>#%d %.0f ms</>', date('H:i:s'), match ($status) {
                 'processed' => '<fg=green>done</>',
                 'retried' => '<fg=yellow>retry</>',

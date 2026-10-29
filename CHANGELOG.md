@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-29
+
+### Fixed
+
+- A job that ran but whose ack was lost to a broker blip counted as failed and ran again at once. The ack now sits outside the job's error handling: the job comes back only after its visibility timeout, as at-least-once delivery allows.
+- A broker restart killed the coroutine that hit it: `queue:work --concurrency 20` lost a coroutine on every error and finally exited. Transport errors are reported as `queue unreachable`, and the loop polls again after a pause that doubles up to 5 seconds.
+
+### Changed
+
+- The report closure of `Worker` receives `null` for the envelope with the status `error`.
+- Requires `anidzen/momo-console` ^0.2.
+
 ## [0.2.1] - 2026-10-26
 
 ### Added

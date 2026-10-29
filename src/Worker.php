@@ -38,8 +38,9 @@ final class Worker
     private int $done = 0;
 
     /**
-     * @param null|Closure(string, Envelope, null|Throwable, float): void $report called after every job:
-     *                                                                            processed, retried or failed
+     * @param null|Closure(string, null|Envelope, null|Throwable, float): void $report called after every job
+     *                                                                                 as processed, retried or failed, and as error
+     *                                                                                 without an envelope when the transport fails
      */
     public function __construct(
         private readonly Transport $transport,
@@ -108,6 +109,8 @@ final class Worker
 
     private function loop(WorkerOptions $options): void
     {
+        $failures = 0;
+
         while ($this->running) {
             if ($options->memoryMb > 0 && memory_get_usage(true) > $options->memoryMb * 1024 * 1024) {
                 $this->stop();
@@ -115,7 +118,20 @@ final class Worker
                 break;
             }
 
-            if ($this->once($options->queues, $options->visibility)) {
+            // A broker restart must not end the worker: the error is
+            // reported, the loop waits longer after each failure in a row,
+            // up to 5 s, and polls again.
+            try {
+                $got = $this->once($options->queues, $options->visibility);
+                $failures = 0;
+            } catch (Throwable $throwable) {
+                $this->report('error', null, $throwable, hrtime(true));
+                $this->sleep(min(5.0, max($options->idle, 0.1) * 2 ** min(++$failures, 6)));
+
+                continue;
+            }
+
+            if ($got) {
                 $this->done++;
                 if ($options->maxJobs > 0 && $this->done >= $options->maxJobs) {
                     $this->stop();
@@ -138,8 +154,6 @@ final class Worker
 
         try {
             ($this->handlers->of($envelope->class))($envelope->job());
-            $this->transport->ack($envelope);
-            $this->report('processed', $envelope, null, $started);
         } catch (Throwable $throwable) {
             $job = Dispatcher::attributeOf($envelope->class);
             if ($envelope->attempts >= $job->attempts) {
@@ -151,10 +165,19 @@ final class Worker
 
             $this->transport->release($envelope, $job->delayBefore($envelope->attempts + 1));
             $this->report('retried', $envelope, $throwable, $started);
+
+            return;
         }
+
+        // Outside the try above: the job is done, and an ack lost to a
+        // broker blip must not count as its failure and run it again.
+        // The loop reports it; the job comes back after the visibility
+        // timeout, as at-least-once delivery allows.
+        $this->transport->ack($envelope);
+        $this->report('processed', $envelope, null, $started);
     }
 
-    private function report(string $status, Envelope $envelope, Throwable|null $error, float|int $started): void
+    private function report(string $status, Envelope|null $envelope, Throwable|null $error, float|int $started): void
     {
         if ($this->report instanceof Closure) {
             ($this->report)($status, $envelope, $error, (hrtime(true) - $started) / 1e6);

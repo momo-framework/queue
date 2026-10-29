@@ -22,6 +22,7 @@ use Momo\Queue\Handlers;
 use Momo\Queue\Job;
 use Momo\Queue\Tests\Fixtures\Billing\Application\SendInvoice;
 use Momo\Queue\Tests\Fixtures\Billing\Presentation\Queue\SendInvoiceHandler;
+use Momo\Queue\Tests\Fixtures\FlakyTransport;
 use Momo\Queue\Transport\MemoryTransport;
 use Momo\Queue\Worker;
 use Momo\Queue\WorkerOptions;
@@ -83,8 +84,8 @@ final class WorkerTest extends TestCase
     {
         $log = [];
         new Dispatcher($this->transport, $this->handlers)->dispatch(new SendInvoice(3, fail: true));
-        $worker = new Worker($this->transport, $this->handlers, static function (string $status, Envelope $e) use (&$log): void {
-            $log[] = $status . ' #' . $e->attempts;
+        $worker = new Worker($this->transport, $this->handlers, static function (string $status, Envelope|null $e) use (&$log): void {
+            $log[] = $status . ' #' . $e?->attempts;
         });
 
         $worker->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true));
@@ -135,6 +136,40 @@ final class WorkerTest extends TestCase
 
         self::assertSame(10, $done);
         self::assertLessThan(0.35, microtime(true) - $started);
+    }
+
+    #[Test]
+    public function a_lost_ack_is_not_a_failure_of_the_job(): void
+    {
+        $flaky = new FlakyTransport($this->transport);
+        $flaky->ackFailures = 1;
+        new Dispatcher($flaky, $this->handlers)->dispatch(new SendInvoice(5));
+        $log = [];
+
+        $worker = new Worker($flaky, $this->handlers, static function (string $status) use (&$log): void {
+            $log[] = $status;
+        });
+        $worker->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true, idle: 0.0));
+
+        self::assertSame([5], SendInvoiceHandler::$sent);
+        self::assertSame(['error'], $log);
+    }
+
+    #[Test]
+    public function the_worker_outlives_a_broker_that_is_down_for_a_while(): void
+    {
+        $flaky = new FlakyTransport($this->transport);
+        new Dispatcher($flaky, $this->handlers)->dispatch(new SendInvoice(9));
+        $flaky->popFailures = 2;
+        $log = [];
+
+        $worker = new Worker($flaky, $this->handlers, static function (string $status) use (&$log): void {
+            $log[] = $status;
+        });
+        $worker->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true, idle: 0.001));
+
+        self::assertSame(['error', 'error', 'processed'], $log);
+        self::assertSame([9], SendInvoiceHandler::$sent);
     }
 
     private function worker(): Worker

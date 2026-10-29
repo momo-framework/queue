@@ -1,7 +1,7 @@
 {
     "name": "anidzen/momo-queue",
     "description": "Job queue for Momo: Redis and database transports, handlers per module, concurrent workers in coroutines",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "type": "library",
     "keywords": [
         "momo",
@@ -22,7 +22,7 @@
     ],
     "require": {
         "php": "^8.5",
-        "anidzen/momo-console": "^0.1.2",
+        "anidzen/momo-console": "^0.2",
         "anidzen/momo-kernel": "^0.4.3"
     },
     "require-dev": {
