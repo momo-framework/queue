@@ -132,7 +132,7 @@ $rules = [
     'types_spaces'                                  => ['space' => 'none'],
 
     'get_class_to_class_keyword'                    => true,
-    'mb_str_functions'                              => true,
+    'mb_str_functions'                              => false,
     'no_alias_functions'                            => true,
     'no_homoglyph_names'                            => true,
     'comment_to_phpdoc'                             => true,
