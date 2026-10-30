@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-30
+
+### Added
+
+- A transport can come from another package: `QUEUE_CONNECTION=amqp` with `anidzen/momo-amqp` installed. Without such a package every queue call fails with the name of the package to install, instead of failing the boot.
+
 ## [0.2.2] - 2026-10-29
 
 ### Fixed

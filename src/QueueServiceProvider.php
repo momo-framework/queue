@@ -25,11 +25,9 @@ use Momo\Queue\Contracts\Queue;
 use Momo\Queue\Contracts\Transport;
 use Momo\Queue\Transport\DatabaseTransport;
 use Momo\Queue\Transport\MemoryTransport;
+use Momo\Queue\Transport\MissingTransport;
 use Momo\Queue\Transport\RedisTransport;
 use Momo\Redis\RedisManager;
-
-use function sprintf;
-
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -50,7 +48,10 @@ final class QueueServiceProvider extends ServiceProvider
             'memory' => $container->register(Transport::class, MemoryTransport::class),
             'redis' => $this->redis(),
             'database' => $this->database(),
-            default => throw new LogicException(sprintf('QUEUE_CONNECTION is "%s"; use sync, memory, redis or database.', $transport)),
+            // Another package brings this transport (amqp from momo-amqp) and
+            // registers it before or after this provider. Until it does,
+            // every call fails with the reason, instead of running jobs inline.
+            default => $container->hasDefinition(Transport::class) ? null : $container->register(Transport::class, MissingTransport::class)->setArguments([$transport]),
         };
         if ($container->hasDefinition(Transport::class)) {
             $container->getDefinition(Transport::class)->setPublic(true);

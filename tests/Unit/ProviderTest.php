@@ -19,6 +19,7 @@ namespace Momo\Queue\Tests\Unit;
 use Momo\Kernel\Application;
 use Momo\Queue\Contracts\Queue;
 use Momo\Queue\Contracts\Transport;
+use Momo\Queue\Exceptions\QueueException;
 use Momo\Queue\Handlers;
 use Momo\Queue\QueueServiceProvider;
 use Momo\Queue\Tests\Fixtures\Billing\Application\SendInvoice;
@@ -69,5 +70,22 @@ final class ProviderTest extends TestCase
 
         self::assertSame([9], SendInvoiceHandler::$sent);
         self::assertSame([SendInvoice::class => SendInvoiceHandler::class], $app->make(Handlers::class)->describe());
+    }
+
+    #[Test]
+    public function a_transport_no_package_provides_refuses_to_queue_instead_of_running_inline(): void
+    {
+        file_put_contents($this->base . '/config/queue.php', '<?php return ' . var_export(['transport' => 'amqp'], true) . ';');
+        $app = new Application($this->base);
+        $app->boot();
+
+        $this->expectException(QueueException::class);
+        $this->expectExceptionMessage('anidzen/momo-amqp');
+
+        try {
+            $app->make(Queue::class)->dispatch(new SendInvoice(1));
+        } finally {
+            self::assertSame([], SendInvoiceHandler::$sent);
+        }
     }
 }
