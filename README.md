@@ -16,7 +16,7 @@
 </div>
 
 <div align="center">
-  <b>Job queue for Momo with Redis and database transports.</b><br/>
+  <b>Job queue for Momo: Redis and database transports, handlers per module, concurrent workers in coroutines.</b><br/>
   Handlers live in each module's Presentation/Queue, one worker runs many jobs at once in coroutines.
 </div>
 
