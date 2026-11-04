@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-04
+
+### Changed
+
+- Environment variables of the config are read with `Env` of `momo-kernel` 0.4.12: wrong values, out of range numbers and unknown options are reported together at boot and by `env:check`, and `.env` needs no comment to say what a key takes.
+
 ## [0.2.3] - 2026-10-30
 
 ### Added
