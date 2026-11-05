@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-05
+
+### Changed
+
+- Accepts `momo-kernel` 0.5.
+
 ## [0.2.4] - 2026-11-04
 
 ### Changed
