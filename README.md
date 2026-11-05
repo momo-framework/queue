@@ -37,6 +37,7 @@
 - Failed jobs are kept: `queue:failed`, `queue:retry <id>|all`
 - `queue:list` shows every job with its handler, queue and attempts
 - `make:job Billing SendInvoice` writes the job and its handler
+- A command of the bus with `#[Queued(queue: 'reports', attempts: 3)]` goes to the queue after the permission check, the sender gets `null`; the worker sends it to the same bus as the user and team who sent it, so the permission, the transaction and the events after commit run there again. Every `Momo\Bus\Contracts\Context` of the app carries its state with the command
 
 ## Why
 
@@ -112,7 +113,7 @@ Tests against Redis run when `REDIS_HOST` is set, the database transport is test
 
 ## Status
 
-0.2. Public API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+0.3. Public API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
 
 ## License
 

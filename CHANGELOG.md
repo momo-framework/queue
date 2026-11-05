@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
+### Added
+
+- Commands of `momo-bus` 0.3.3 with `#[Queued]` run in a worker: the bus of the sender checks the permission and puts the command in the queue, the worker sends it back to the bus within every `Context` of the app (the user, the team), so the whole chain runs again there. Queue, attempts and backoff come from `#[Queued]`. Without a booted bus the queue works with jobs only.
+
+### Changed
+
+- Accepts `momo-database` 0.3.
+
 ## [0.2.5] - 2026-11-05
 
 ### Changed

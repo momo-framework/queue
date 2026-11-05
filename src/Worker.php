@@ -155,7 +155,12 @@ final class Worker
         try {
             ($this->handlers->of($envelope->class))($envelope->job());
         } catch (Throwable $throwable) {
-            $job = Dispatcher::attributeOf($envelope->class);
+            try {
+                $job = Dispatcher::jobOf($envelope->job());
+            } catch (Throwable) {
+                $job = Dispatcher::attributeOf($envelope->class);
+            }
+
             if ($envelope->attempts >= $job->attempts) {
                 $this->transport->fail($envelope, $throwable);
                 $this->report('failed', $envelope, $throwable, $started);

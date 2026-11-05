@@ -1,7 +1,7 @@
 {
     "name": "anidzen/momo-queue",
     "description": "Job queue for Momo: Redis and database transports, handlers per module, concurrent workers in coroutines",
-    "version": "0.2.5",
+    "version": "0.3.0",
     "type": "library",
     "keywords": [
         "momo",
@@ -26,7 +26,8 @@
         "anidzen/momo-kernel": "^0.4.12 || ^0.5"
     },
     "require-dev": {
-        "anidzen/momo-database": "^0.2",
+        "anidzen/momo-bus": "^0.3.3",
+        "anidzen/momo-database": "^0.2 || ^0.3",
         "anidzen/momo-redis": "^0.1.1",
         "friendsofphp/php-cs-fixer": "^3.0",
         "phpstan/phpstan": "^2.1",
@@ -39,7 +40,8 @@
     "suggest": {
         "anidzen/momo-redis": "The redis transport",
         "anidzen/momo-database": "The database transport: jobs commit with your data",
-        "ext-swoole": "Concurrent jobs in one worker process"
+        "ext-swoole": "Concurrent jobs in one worker process",
+        "anidzen/momo-bus": "Commands of #[Queued] run in a worker through the bus"
     },
     "autoload": {
         "psr-4": {

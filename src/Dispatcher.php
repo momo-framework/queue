@@ -47,9 +47,15 @@ final class Dispatcher implements Queue
         return self::$attributes[$class] ??= (new ReflectionClass($class)->getAttributes(Job::class)[0] ?? null)?->newInstance() ?? new Job();
     }
 
+    /** How this job is queued and retried: a queued command of the bus says it per command. */
+    public static function jobOf(object $job): Job
+    {
+        return $job instanceof Bus\QueuedCommand ? $job->job() : self::attributeOf($job::class);
+    }
+
     public function dispatch(object $job, int $delay = 0): string
     {
-        $envelope = Envelope::wrap($job, self::attributeOf($job::class)->queue ?? $this->defaultQueue);
+        $envelope = Envelope::wrap($job, self::jobOf($job)->queue ?? $this->defaultQueue);
 
         if (! $this->transport instanceof Transport) {
             ($this->handlers->of($job::class))($job);

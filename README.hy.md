@@ -37,6 +37,7 @@
 - Ձախողված առաջադրանքները պահվում են. `queue:failed`, `queue:retry <id>|all`
 - `queue:list`-ը ցույց է տալիս բոլոր առաջադրանքները մշակիչով, հերթով և փորձերի քանակով
 - `make:job Billing SendInvoice`-ը ստեղծում է առաջադրանքը և նրա մշակիչը
+- Bus-ի հրամանը `#[Queued(queue: 'reports', attempts: 3)]`-ով գնում է հերթ իրավունքի ստուգումից հետո, ուղարկողը ստանում է `null`. worker-ը այն ուղարկում է նույն bus-ին նույն օգտատիրոջ և թիմի անունից, ուստի իրավունքը, տրանզակցիան և commit-ից հետո իրադարձությունները աշխատում են այնտեղ էլ։ Հավելվածի յուրաքանչյուր `Momo\Bus\Contracts\Context` իր վիճակը տանում է հրամանի հետ
 
 ## Ինչու
 
@@ -112,7 +113,7 @@ Redis-ի թեստերը գործարկվում են, երբ տրված է `REDIS
 
 ## Կարգավիճակ
 
-0.2։ Հանրային API՝ `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`։
+0.3։ Հանրային API՝ `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`։
 
 ## Լիցենզիա
 

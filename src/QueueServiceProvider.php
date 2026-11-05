@@ -17,6 +17,9 @@ declare(strict_types=1);
 namespace Momo\Queue;
 
 use LogicException;
+use Momo\Bus\Contracts\Bus as BusContract;
+use Momo\Bus\Contracts\Context;
+use Momo\Bus\Contracts\Middleware;
 use Momo\Database\DatabaseManager;
 use Momo\Database\Migrations\Migrator;
 use Momo\Kernel\Support\ServiceProvider;
@@ -37,6 +40,8 @@ final class QueueServiceProvider extends ServiceProvider
     public const string PROTOCOL = 'Queue';
 
     public const string HANDLER_TAG = 'momo.queue.handler';
+
+    public const string CONTEXT_TAG = 'momo.bus.context';
 
     public function register(): void
     {
@@ -60,6 +65,7 @@ final class QueueServiceProvider extends ServiceProvider
         $maybeTransport = new Reference(Transport::class, ContainerInterface::NULL_ON_INVALID_REFERENCE);
 
         $this->tag(JobHandler::class, self::HANDLER_TAG);
+        $this->bus();
         $container->register(Handlers::class, Handlers::class)->setArguments([$this->tagged(self::HANDLER_TAG)])->setPublic(true);
 
         $default = $this->string('queue.queue', 'default');
@@ -124,5 +130,23 @@ final class QueueServiceProvider extends ServiceProvider
         $value = $this->app->getConfig($key, $default);
 
         return is_string($value) && $value !== '' ? $value : $default;
+    }
+
+    /**
+     * Commands of #[Queued] go through the queue when momo-bus is there.
+     * Who sent them and in which team travels with every Context of the app.
+     */
+    private function bus(): void
+    {
+        if (! interface_exists(Middleware::class)) {
+            return;
+        }
+
+        $this->tag(Context::class, self::CONTEXT_TAG);
+        $this->getContainerBuilder()->register(Bus\QueueCommands::class, Bus\QueueCommands::class)
+            ->setArguments([new Reference(Queue::class), new Reference(BusContract::class), $this->tagged(self::CONTEXT_TAG)])
+            ->setAutoconfigured(true)
+            ->setPublic(true);
+        $this->getContainerBuilder()->addCompilerPass(new Bus\WithoutBus());
     }
 }

@@ -37,6 +37,7 @@
 - Упавшие задачи сохраняются: `queue:failed`, `queue:retry <id>|all`
 - `queue:list` показывает все задачи с обработчиком, очередью и числом попыток
 - `make:job Billing SendInvoice` создаёт задачу и её обработчик
+- Команда шины с `#[Queued(queue: 'reports', attempts: 3)]` уходит в очередь после проверки права, отправитель получает `null`; воркер шлёт её в ту же шину от имени того же пользователя и команды, поэтому право, транзакция и события после коммита работают и там. Каждый `Momo\Bus\Contracts\Context` приложения переносит своё состояние вместе с командой
 
 ## Зачем
 
@@ -112,7 +113,7 @@ composer check
 
 ## Статус
 
-0.2. Публичный API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+0.3. Публичный API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
 
 ## Лицензия
 
