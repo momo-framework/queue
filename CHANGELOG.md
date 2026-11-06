@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-06
+
+### Dependencies
+
+- Requires `momo-kernel` 0.5, `momo-database` 0.3 for development. The ranges that still let in older releases are gone.
+
 ## [0.3.0] - 2026-11-05
 
 ### Added
