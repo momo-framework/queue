@@ -25,11 +25,10 @@ default:
 variables:
   COMPOSER_ALLOW_SUPERUSER: "1"
   COMPOSER_NO_INTERACTION: "1"
-  COMPOSER_IGNORE_PLATFORM_REQ: "ext-swoole,ext-redis"
 
 .php:
   stage: verify
-  image: php:8.5-cli
+  image: phpswoole/swoole:6.2.3-php8.5-alpine
   needs: []
   cache:
     key:
@@ -39,10 +38,8 @@ variables:
     paths:
       - vendor
   before_script:
-    - apt-get update -qq && apt-get install -qq -y --no-install-recommends git unzip > /dev/null
-    - docker-php-ext-install sockets > /dev/null
+    - apk add --no-cache git > /dev/null
     - export COMPOSER_AUTH="{\"http-basic\":{\"${REGISTRY_URL#https://}\":{\"username\":\"$COMPOSER_USER\",\"password\":\"$COMPOSER_PASSWORD\"}}}"
-    - curl -sS https://getcomposer.org/installer | php -- --2 --install-dir=/usr/local/bin --filename=composer
     - composer update --no-progress --prefer-dist
 
 rector:
