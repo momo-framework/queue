@@ -59,7 +59,13 @@ analyse:
 
 test:
   extends: .php
+  services:
+    - name: rabbitmq:4-alpine
+      alias: rabbitmq
+  variables:
+    AMQP_HOST: "rabbitmq"
   script:
+    - timeout 120 sh -c 'until nc -z rabbitmq 5672; do sleep 1; done'
     - composer test
 
 config:
