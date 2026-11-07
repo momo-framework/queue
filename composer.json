@@ -8,11 +8,11 @@
         "swoole",
         "queue"
     ],
-    "homepage": "https://gitlab.com/anidzen/momo/packages/queue",
+    "homepage": "https://gitlab.com/anidzen/momo/core/queue",
     "license": "AGPL-3.0-or-later",
     "support": {
-        "issues": "https://gitlab.com/anidzen/momo/packages/queue/-/issues",
-        "source": "https://gitlab.com/anidzen/momo/packages/queue"
+        "issues": "https://gitlab.com/anidzen/momo/core/queue/-/issues",
+        "source": "https://gitlab.com/anidzen/momo/core/queue"
     },
     "authors": [
         {
