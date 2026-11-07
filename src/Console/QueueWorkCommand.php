@@ -36,7 +36,7 @@ use Throwable;
 final class QueueWorkCommand extends Command
 {
     public function __construct(
-        private readonly Transport|null $transport,
+        private readonly Transport $transport,
         private readonly Handlers $handlers,
         private readonly int $visibility = 90,
     ) {
@@ -45,12 +45,6 @@ final class QueueWorkCommand extends Command
 
     protected function handle(): int
     {
-        if (! $this->transport instanceof Transport) {
-            $this->error('QUEUE_CONNECTION is sync: jobs run when dispatched, there is nothing to work on. Set it to redis or database.');
-
-            return self::FAILURE;
-        }
-
         $queues = array_values(array_filter(array_map(trim(...), explode(',', $this->optionText('queue', 'default'))), static fn (string $q): bool => $q !== ''));
         $options = new WorkerOptions(
             queues: $queues === [] ? ['default'] : $queues,
@@ -92,10 +86,6 @@ final class QueueWorkCommand extends Command
         return is_string($value) && $value !== '' ? $value : $default;
     }
 
-    /**
-     * SIGTERM and SIGINT let the running jobs finish: Docker and Kubernetes
-     * send SIGTERM first and wait before killing.
-     */
     private function trapSignals(Worker $worker): void
     {
         $stop = static function () use ($worker): void {

@@ -18,10 +18,6 @@ namespace Momo\Queue;
 
 use Momo\Queue\Exceptions\QueueException;
 
-/**
- * A job on its way through a transport: the serialized job and what the
- * worker needs to retry it.
- */
 final readonly class Envelope
 {
     public function __construct(

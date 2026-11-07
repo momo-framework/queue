@@ -22,16 +22,12 @@ use Momo\Queue\Envelope;
 use Momo\Queue\FailedJob;
 use Throwable;
 
-/**
- * Jobs in the memory of one process, for tests: dispatch in the test,
- * then run the worker with stopWhenEmpty.
- */
 final class MemoryTransport implements Transport
 {
-    /** @var array<string, list<array{int, Envelope}>> queue => available at, envelope */
+    /** @var array<string, list<array{int, Envelope}>> */
     private array $ready = [];
 
-    /** @var array<string, array{int, Envelope}> id => deadline, envelope */
+    /** @var array<string, array{int, Envelope}> */
     private array $reserved = [];
 
     /** @var array<string, FailedJob> */

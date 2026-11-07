@@ -16,27 +16,20 @@ declare(strict_types=1);
 
 namespace Momo\Queue;
 
-use LogicException;
 use Momo\Bus\Contracts\Bus as BusContract;
 use Momo\Bus\Contracts\Context;
-use Momo\Bus\Contracts\Middleware;
-use Momo\Database\DatabaseManager;
-use Momo\Database\Migrations\Migrator;
 use Momo\Kernel\Support\ServiceProvider;
+use Momo\Queue\Amqp\AmqpTransport;
+use Momo\Queue\Amqp\Connections;
 use Momo\Queue\Contracts\JobHandler;
 use Momo\Queue\Contracts\Queue;
 use Momo\Queue\Contracts\Transport;
-use Momo\Queue\Transport\DatabaseTransport;
 use Momo\Queue\Transport\MemoryTransport;
-use Momo\Queue\Transport\MissingTransport;
-use Momo\Queue\Transport\RedisTransport;
-use Momo\Redis\RedisManager;
-use Symfony\Component\DependencyInjection\ContainerInterface;
+use Momo\Server\WorkerHooks;
 use Symfony\Component\DependencyInjection\Reference;
 
 final class QueueServiceProvider extends ServiceProvider
 {
-    /** The protocol this package declares in extra.momo.protocols. */
     public const string PROTOCOL = 'Queue';
 
     public const string HANDLER_TAG = 'momo.queue.handler';
@@ -46,107 +39,83 @@ final class QueueServiceProvider extends ServiceProvider
     public function register(): void
     {
         $container = $this->getContainerBuilder();
-        $transport = $this->string('queue.transport', 'sync');
 
-        match ($transport) {
-            'sync' => null,
-            'memory' => $container->register(Transport::class, MemoryTransport::class),
-            'redis' => $this->redis(),
-            'database' => $this->database(),
-            // Another package brings this transport (amqp from momo-amqp) and
-            // registers it before or after this provider. Until it does,
-            // every call fails with the reason, instead of running jobs inline.
-            default => $container->hasDefinition(Transport::class) ? null : $container->register(Transport::class, MissingTransport::class)->setArguments([$transport]),
-        };
-        if ($container->hasDefinition(Transport::class)) {
-            $container->getDefinition(Transport::class)->setPublic(true);
-        }
+        $container->register(Connections::class, Connections::class)
+            ->setArguments([[
+                'host' => $this->string('queue.host', 'rabbitmq'),
+                'port' => $this->int('queue.port', 5672),
+                'user' => $this->string('queue.user', 'guest'),
+                'password' => $this->string('queue.password', 'guest'),
+                'vhost' => $this->string('queue.vhost', '/'),
+                'heartbeat' => $this->int('queue.heartbeat', 30),
+                'timeout' => $this->float('queue.timeout', 5.0),
+                'pool' => $this->int('queue.pool', 32),
+            ]])
+            ->setPublic(true);
 
-        $maybeTransport = new Reference(Transport::class, ContainerInterface::NULL_ON_INVALID_REFERENCE);
+        $container->register(AmqpTransport::class, AmqpTransport::class)
+            ->setArguments([new Reference(Connections::class), $this->string('queue.failed_queue', 'momo.failed')])
+            ->setPublic(true);
+        $this->app->getConfig('queue.transport') === 'memory'
+            ? $container->register(Transport::class, MemoryTransport::class)->setPublic(true)
+            : $container->setAlias(Transport::class, AmqpTransport::class)->setPublic(true);
+
+        $container->register(Health\AmqpCheck::class, Health\AmqpCheck::class)
+            ->setAutowired(true)
+            ->setAutoconfigured(true);
 
         $this->tag(JobHandler::class, self::HANDLER_TAG);
-        $this->bus();
         $container->register(Handlers::class, Handlers::class)->setArguments([$this->tagged(self::HANDLER_TAG)])->setPublic(true);
 
         $default = $this->string('queue.queue', 'default');
+        $transport = new Reference(Transport::class);
         $container->register(Dispatcher::class, Dispatcher::class)
-            ->setArguments([$maybeTransport, new Reference(Handlers::class), $default])
+            ->setArguments([$transport, $default])
             ->setPublic(true);
         $container->setAlias(Queue::class, Dispatcher::class)->setPublic(true);
 
-        $retry = $this->app->getConfig('queue.retry_after', 90);
         foreach ([
-            Console\QueueWorkCommand::class => [$maybeTransport, new Reference(Handlers::class), is_numeric($retry) ? (int) $retry : 90],
-            Console\QueueFailedCommand::class => [$maybeTransport],
-            Console\QueueRetryCommand::class => [$maybeTransport],
+            Console\QueueWorkCommand::class => [$transport, new Reference(Handlers::class), $this->int('queue.retry_after', 90)],
+            Console\QueueFailedCommand::class => [$transport],
+            Console\QueueRetryCommand::class => [$transport],
             Console\QueueListCommand::class => [new Reference(Handlers::class), $default],
         ] as $command => $arguments) {
             $container->register($command, $command)->setArguments($arguments)->addTag('momo.console_command')->setPublic(true);
         }
+
+        $this->tag(Context::class, self::CONTEXT_TAG);
+        $container->register(Bus\QueueCommands::class, Bus\QueueCommands::class)
+            ->setArguments([new Reference(Queue::class), new Reference(BusContract::class), $this->tagged(self::CONTEXT_TAG)])
+            ->setAutoconfigured(true)
+            ->setPublic(true);
     }
 
-    /**
-     * The jobs and failed_jobs tables come with the package and join
-     * migrate when the database transport is used.
-     */
     public function boot(): void
     {
-        if ($this->string('queue.transport', 'sync') === 'database' && class_exists(Migrator::class)) {
-            $this->app->make(Migrator::class)->addPath(__DIR__ . '/../database/migrations');
-        }
-    }
-
-    private function redis(): void
-    {
-        if (! class_exists(RedisManager::class)) {
-            throw new LogicException('QUEUE_CONNECTION is redis: composer require anidzen/momo-redis.');
-        }
-
-        $container = $this->getContainerBuilder();
-        $container->register('momo.queue.redis', \Momo\Redis\Connection::class)
-            ->setFactory([new Reference(RedisManager::class), 'connection'])
-            ->setArguments([$this->string('queue.redis.connection', 'default')]);
-        $container->register(Transport::class, RedisTransport::class)
-            ->setArguments([new Reference('momo.queue.redis'), $this->string('queue.redis.prefix', 'queue:')]);
-    }
-
-    private function database(): void
-    {
-        if (! class_exists(DatabaseManager::class)) {
-            throw new LogicException('QUEUE_CONNECTION is database: composer require anidzen/momo-database.');
-        }
-
-        $connection = $this->app->getConfig('queue.database.connection');
-        $container = $this->getContainerBuilder();
-        $container->register('momo.queue.db', \Momo\Database\Connection::class)
-            ->setFactory([new Reference(DatabaseManager::class), 'connection'])
-            ->setArguments([is_string($connection) && $connection !== '' ? $connection : null]);
-        $container->register(Transport::class, DatabaseTransport::class)
-            ->setArguments([new Reference('momo.queue.db'), $this->string('queue.database.table', 'jobs')]);
+        $app = $this->app;
+        $this->app->make(WorkerHooks::class)->onStop(static function () use ($app): void {
+            $app->make(Connections::class)->close();
+        });
     }
 
     private function string(string $key, string $default): string
     {
         $value = $this->app->getConfig($key, $default);
 
-        return is_string($value) && $value !== '' ? $value : $default;
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : $default;
     }
 
-    /**
-     * Commands of #[Queued] go through the queue when momo-bus is there.
-     * Who sent them and in which team travels with every Context of the app.
-     */
-    private function bus(): void
+    private function int(string $key, int $default): int
     {
-        if (! interface_exists(Middleware::class)) {
-            return;
-        }
+        $value = $this->app->getConfig($key, $default);
 
-        $this->tag(Context::class, self::CONTEXT_TAG);
-        $this->getContainerBuilder()->register(Bus\QueueCommands::class, Bus\QueueCommands::class)
-            ->setArguments([new Reference(Queue::class), new Reference(BusContract::class), $this->tagged(self::CONTEXT_TAG)])
-            ->setAutoconfigured(true)
-            ->setPublic(true);
-        $this->getContainerBuilder()->addCompilerPass(new Bus\WithoutBus());
+        return is_numeric($value) ? (int) $value : $default;
+    }
+
+    private function float(string $key, float $default): float
+    {
+        $value = $this->app->getConfig($key, $default);
+
+        return is_numeric($value) ? (float) $value : $default;
     }
 }

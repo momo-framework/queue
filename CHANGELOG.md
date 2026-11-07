@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
+### Changed
+
+- The queue runs on RabbitMQ only. The AMQP transport of `momo-amqp` lives here now (`Momo\Queue\Amqp`), with its readiness check, and every app sends jobs and `#[Queued]` commands there. Connection keys stay `AMQP_HOST`, `AMQP_PORT`, `AMQP_USER`, `AMQP_PASSWORD`, `AMQP_VHOST`; `AMQP_PASSWORD` must be a secret of its own in production.
+- Requires `momo-bus`, `momo-health`, `momo-server` and `momo-console` 0.3: they come with every Momo app.
+- The config file is in the Momo config layout, checked by `momo config:check`.
+- No prose comments in the code: names say what it does, docblocks keep only the types PHPStan reads.
+
+### Fixed
+
+- A push returns only after RabbitMQ confirmed the message (publisher confirms), and a refused message throws. Before, a push returned while the message could still be lost with its connection.
+
+### Removed
+
+- `QUEUE_CONNECTION` and the `sync`, `redis` and `database` transports with the `jobs` tables. Tests swap the transport for `MemoryTransport` (`queue.transport` = `memory`).
+- `anidzen/momo-amqp`: drop it from composer.json.
+
 ## [0.3.1] - 2026-11-06
 
 ### Dependencies

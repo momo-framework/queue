@@ -7,8 +7,8 @@
 
 <div align="center">
 
-  <a href="https://gitlab.com/anidzen/momo/core/queue/-/pipelines">
-    <img src="https://gitlab.com/anidzen/momo/core/queue/badges/main/pipeline.svg" alt="CI/CD"/>
+  <a href="https://gitlab.com/anidzen/momo/packages/queue/-/pipelines">
+    <img src="https://gitlab.com/anidzen/momo/packages/queue/badges/main/pipeline.svg" alt="CI/CD"/>
   </a>
   <img src="https://img.shields.io/badge/PHP-8.5+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.5+"/>
   <img src="https://img.shields.io/badge/License-AGPL--3.0-lightgrey?style=flat-square" alt="License"/>

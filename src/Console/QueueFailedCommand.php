@@ -24,14 +24,14 @@ use Momo\Queue\FailedJob;
 #[AsCommand(name: 'queue:failed', description: 'List jobs that used up their attempts')]
 final class QueueFailedCommand extends Command
 {
-    public function __construct(private readonly Transport|null $transport)
+    public function __construct(private readonly Transport $transport)
     {
         parent::__construct();
     }
 
     protected function handle(): int
     {
-        $failed = $this->transport?->failed() ?? [];
+        $failed = $this->transport->failed();
         if ($failed === []) {
             $this->info('No failed jobs.');
 

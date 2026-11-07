@@ -26,25 +26,16 @@ use Momo\Bus\Stage;
 use Momo\Queue\Contracts\JobHandler;
 use Momo\Queue\Contracts\Queue;
 
-/**
- * Both ends of a command of #[Queued]. On the bus of the sender it leaves
- * for the queue after the permission check and the sender gets null; in
- * the worker it comes back to the same bus within the contexts it was sent
- * in and runs the whole chain, the permission again included.
- *
- * @internal
- */
+/** @internal */
 final class QueueCommands implements JobHandler, Middleware
 {
     /** @var array<class-string, bool> */
     private array $queued = [];
 
-    /** @var array<int, true> commands the worker runs now, by object id */
+    /** @var array<int, true> */
     private array $running = [];
 
-    /**
-     * @param iterable<Context> $contexts
-     */
+    /** @param iterable<Context> $contexts */
     public function __construct(
         private readonly Queue $queue,
         private readonly Bus $bus,

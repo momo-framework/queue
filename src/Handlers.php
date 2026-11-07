@@ -23,12 +23,7 @@ use ReflectionNamedType;
 
 use function sprintf;
 
-/**
- * Job class to handler, read from the __invoke signatures once per
- * worker.
- *
- * @internal
- */
+/** @internal */
 final class Handlers
 {
     /** @var null|array<class-string, Closure(object): mixed> */
@@ -37,14 +32,10 @@ final class Handlers
     /** @var array<class-string, class-string> */
     private array $names = [];
 
-    /**
-     * @param iterable<Contracts\JobHandler> $handlers
-     */
+    /** @param iterable<Contracts\JobHandler> $handlers */
     public function __construct(private readonly iterable $handlers = []) {}
 
-    /**
-     * @return Closure(object): mixed
-     */
+    /** @return Closure(object): mixed */
     public function of(string $class): Closure
     {
         $map = $this->map ??= $this->build();
@@ -52,9 +43,7 @@ final class Handlers
         return $map[$class] ?? throw new QueueException(sprintf('No handler for job %s. Add a JobHandler with __invoke(%s $job) to Presentation/Queue of its module.', $class, mb_substr($class, (int) mb_strrpos($class, '\\') + 1)));
     }
 
-    /**
-     * @return array<class-string, class-string> job class => handler class, for queue:list
-     */
+    /** @return array<class-string, class-string> */
     public function describe(): array
     {
         $this->map ??= $this->build();
@@ -63,9 +52,7 @@ final class Handlers
         return $this->names;
     }
 
-    /**
-     * @return array<class-string, Closure(object): mixed>
-     */
+    /** @return array<class-string, Closure(object): mixed> */
     private function build(): array
     {
         $map = [];

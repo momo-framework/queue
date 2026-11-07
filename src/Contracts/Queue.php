@@ -16,16 +16,7 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Contracts;
 
-/**
- * Puts jobs on the queue. A job is a plain object of public values; its
- * handler, a JobHandler in some module, runs it in a queue:work process.
- */
 interface Queue
 {
-    /**
-     * @param int $delay seconds before the job may run
-     *
-     * @return string the job id
-     */
     public function dispatch(object $job, int $delay = 0): string;
 }

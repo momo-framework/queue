@@ -16,9 +16,4 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Contracts;
 
-/**
- * Runs one job class: __invoke(SendInvoice $job). It lives in the
- * Presentation/Queue folder of a module, because a queue is a way into
- * the module like HTTP is, and is found by the type of its parameter.
- */
 interface JobHandler {}

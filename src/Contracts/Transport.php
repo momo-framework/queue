@@ -20,18 +20,11 @@ use Momo\Queue\Envelope;
 use Momo\Queue\FailedJob;
 use Throwable;
 
-/**
- * Where jobs wait. pop() reserves a job for $visibility seconds: a worker
- * that dies with it lets the job reappear after that, so every job runs
- * at least once.
- */
 interface Transport
 {
     public function push(Envelope $envelope, int $delay = 0): void;
 
-    /**
-     * @phpstan-impure
-     */
+    /** @phpstan-impure */
     public function pop(string $queue, int $visibility): Envelope|null;
 
     public function ack(Envelope $envelope): void;
@@ -42,14 +35,9 @@ interface Transport
 
     public function size(string $queue): int;
 
-    /**
-     * @return list<FailedJob>
-     */
+    /** @return list<FailedJob> */
     public function failed(): array;
 
-    /**
-     * Puts a failed job back on its queue with its attempts reset.
-     */
     public function retry(string $id): bool;
 
     public function forget(string $id): bool;

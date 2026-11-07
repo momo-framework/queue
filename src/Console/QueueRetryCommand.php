@@ -26,19 +26,13 @@ use Momo\Queue\FailedJob;
 #[Argument(name: 'ids', description: 'Ids from queue:failed, or "all"', required: true, isArray: true)]
 final class QueueRetryCommand extends Command
 {
-    public function __construct(private readonly Transport|null $transport)
+    public function __construct(private readonly Transport $transport)
     {
         parent::__construct();
     }
 
     protected function handle(): int
     {
-        if (! $this->transport instanceof Transport) {
-            $this->error('QUEUE_CONNECTION is sync: there are no failed jobs to retry.');
-
-            return self::FAILURE;
-        }
-
         $ids = $this->argument('ids');
         $ids = is_array($ids) ? array_values(array_filter($ids, is_string(...))) : [];
         if ($ids === ['all']) {

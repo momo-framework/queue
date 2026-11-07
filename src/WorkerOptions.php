@@ -18,15 +18,7 @@ namespace Momo\Queue;
 
 final readonly class WorkerOptions
 {
-    /**
-     * @param list<string> $queues        polled in this order, the first non-empty wins
-     * @param int          $concurrency   jobs run at once, one coroutine each; 1 without Swoole
-     * @param int          $maxJobs       stop after this many jobs, 0 for never
-     * @param bool         $stopWhenEmpty stop when every queue is empty
-     * @param int          $visibility    seconds a taken job stays hidden before another worker may take it
-     * @param float        $idle          seconds to wait when every queue is empty
-     * @param int          $memoryMb      stop when the process uses more, so the supervisor starts a fresh one
-     */
+    /** @param list<string> $queues */
     public function __construct(
         public array $queues = ['default'],
         public int $concurrency = 1,

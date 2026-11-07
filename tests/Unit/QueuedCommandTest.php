@@ -39,16 +39,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @internal
- */
+/** @internal */
 #[CoversClass(QueueCommands::class)]
 #[CoversClass(QueuedCommand::class)]
 final class QueuedCommandTest extends TestCase
 {
     private int $now = 1_000;
 
-    /** @var list<string> who the permission was checked for, each time */
+    /** @var list<string> */
     private array $checked = [];
 
     protected function setUp(): void
@@ -74,20 +72,8 @@ final class QueuedCommandTest extends TestCase
         new Worker($transport, $handlers)->run(new WorkerOptions(queues: ['reports'], stopWhenEmpty: true));
 
         self::assertSame(['2026-10 for ann'], Ran::$list);
-        // Checked when sent and again in the worker, as the same user.
         self::assertSame(['ann', 'ann'], $this->checked);
         self::assertNull(CurrentUser::$id);
-    }
-
-    #[Test]
-    public function without_a_transport_it_runs_at_once(): void
-    {
-        [$bus] = $this->bus(null);
-        CurrentUser::$id = 'bob';
-
-        $bus->dispatch(new ExportCalls('2026-11'));
-
-        self::assertSame(['2026-11 for bob'], Ran::$list);
     }
 
     #[Test]
@@ -107,13 +93,13 @@ final class QueuedCommandTest extends TestCase
     }
 
     /** @return array{MessageBus, Handlers} */
-    private function bus(MemoryTransport|null $transport): array
+    private function bus(MemoryTransport $transport): array
     {
         $middleware = new ArrayObject();
         $jobs = new ArrayObject();
         $bus = new MessageBus(new HandlerMap([new ExportCallsHandler()]), $middleware);
         $handlers = new Handlers($jobs);
-        $queue = new QueueCommands(new Dispatcher($transport, $handlers), $bus, [new CurrentUser()]);
+        $queue = new QueueCommands(new Dispatcher($transport), $bus, [new CurrentUser()]);
 
         $middleware->append($queue);
         $middleware->append($this->authorize());

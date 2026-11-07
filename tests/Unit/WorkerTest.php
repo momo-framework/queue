@@ -31,9 +31,7 @@ use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @internal
- */
+/** @internal */
 #[CoversClass(Worker::class)]
 #[CoversClass(Dispatcher::class)]
 #[CoversClass(MemoryTransport::class)]
@@ -56,17 +54,9 @@ final class WorkerTest extends TestCase
     }
 
     #[Test]
-    public function without_a_transport_the_handler_runs_on_dispatch(): void
-    {
-        new Dispatcher(null, $this->handlers)->dispatch(new SendInvoice(7));
-
-        self::assertSame([7], SendInvoiceHandler::$sent);
-    }
-
-    #[Test]
     public function a_dispatched_job_goes_to_the_queue_of_its_attribute_and_runs_in_the_worker(): void
     {
-        $queue = new Dispatcher($this->transport, $this->handlers);
+        $queue = new Dispatcher($this->transport);
         $queue->dispatch(new SendInvoice(1));
         $queue->dispatch(new SendInvoice(2), delay: 60);
 
@@ -83,7 +73,7 @@ final class WorkerTest extends TestCase
     public function a_failing_job_is_retried_then_kept_as_failed_and_can_be_retried(): void
     {
         $log = [];
-        new Dispatcher($this->transport, $this->handlers)->dispatch(new SendInvoice(3, fail: true));
+        new Dispatcher($this->transport)->dispatch(new SendInvoice(3, fail: true));
         $worker = new Worker($this->transport, $this->handlers, static function (string $status, Envelope|null $e) use (&$log): void {
             $log[] = $status . ' #' . $e?->attempts;
         });
@@ -102,7 +92,7 @@ final class WorkerTest extends TestCase
     #[Test]
     public function a_job_whose_worker_died_reappears_after_its_visibility_timeout(): void
     {
-        new Dispatcher($this->transport, $this->handlers)->dispatch(new SendInvoice(4));
+        new Dispatcher($this->transport)->dispatch(new SendInvoice(4));
 
         self::assertInstanceOf(Envelope::class, $this->transport->pop('mail', 30));
         self::assertNull($this->transport->pop('mail', 30));
@@ -126,7 +116,7 @@ final class WorkerTest extends TestCase
     #[RequiresPhpExtension('swoole')]
     public function jobs_run_concurrently_in_coroutines(): void
     {
-        $queue = new Dispatcher($this->transport, $this->handlers);
+        $queue = new Dispatcher($this->transport);
         for ($i = 0; $i < 10; $i++) {
             $queue->dispatch(new SendInvoice($i, takes: 0.1));
         }
@@ -143,7 +133,7 @@ final class WorkerTest extends TestCase
     {
         $flaky = new FlakyTransport($this->transport);
         $flaky->ackFailures = 1;
-        new Dispatcher($flaky, $this->handlers)->dispatch(new SendInvoice(5));
+        new Dispatcher($flaky)->dispatch(new SendInvoice(5));
         $log = [];
 
         $worker = new Worker($flaky, $this->handlers, static function (string $status) use (&$log): void {
@@ -159,7 +149,7 @@ final class WorkerTest extends TestCase
     public function the_worker_outlives_a_broker_that_is_down_for_a_while(): void
     {
         $flaky = new FlakyTransport($this->transport);
-        new Dispatcher($flaky, $this->handlers)->dispatch(new SendInvoice(9));
+        new Dispatcher($flaky)->dispatch(new SendInvoice(9));
         $flaky->popFailures = 2;
         $log = [];
 

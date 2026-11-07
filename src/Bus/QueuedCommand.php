@@ -21,17 +21,12 @@ use Momo\Bus\Queued;
 use Momo\Queue\Job;
 use ReflectionClass;
 
-/**
- * A command of #[Queued] on its way to a worker, with the state of every
- * context of the bus at the moment it was sent.
- *
- * @internal
- */
+/** @internal */
 final readonly class QueuedCommand
 {
     /**
      * @param Command<mixed>                      $command
-     * @param array<string, array<string, mixed>> $context by class of the context
+     * @param array<string, array<string, mixed>> $context
      */
     public function __construct(
         public Command $command,
@@ -44,7 +39,6 @@ final readonly class QueuedCommand
         return (new ReflectionClass($command)->getAttributes(Queued::class)[0] ?? null)?->newInstance();
     }
 
-    /** The queue and the retries #[Queued] of the command asks for. */
     public function job(): Job
     {
         $queued = self::queuedOf($this->command);

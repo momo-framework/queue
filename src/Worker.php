@@ -25,32 +25,19 @@ use function Swoole\Coroutine\run;
 use Swoole\Coroutine\WaitGroup;
 use Throwable;
 
-/**
- * Takes jobs from the transport and runs their handlers. With Swoole,
- * $concurrency coroutines take jobs in parallel inside one process, so a
- * worker waiting on HTTP or SQL keeps the others busy. stop() lets the
- * running jobs finish and takes no new ones.
- */
 final class Worker
 {
     private bool $running = false;
 
     private int $done = 0;
 
-    /**
-     * @param null|Closure(string, null|Envelope, null|Throwable, float): void $report called after every job
-     *                                                                                 as processed, retried or failed, and as error
-     *                                                                                 without an envelope when the transport fails
-     */
+    /** @param null|Closure(string, null|Envelope, null|Throwable, float): void $report */
     public function __construct(
         private readonly Transport $transport,
         private readonly Handlers $handlers,
         private readonly Closure|null $report = null,
     ) {}
 
-    /**
-     * @return int jobs processed
-     */
     public function run(WorkerOptions $options): int
     {
         $this->running = true;
@@ -88,11 +75,7 @@ final class Worker
         $this->running = false;
     }
 
-    /**
-     * Takes and runs one job of the first non-empty queue.
-     *
-     * @param list<string> $queues
-     */
+    /** @param list<string> $queues */
     public function once(array $queues, int $visibility = 90): bool
     {
         foreach ($queues as $queue) {
@@ -118,9 +101,6 @@ final class Worker
                 break;
             }
 
-            // A broker restart must not end the worker: the error is
-            // reported, the loop waits longer after each failure in a row,
-            // up to 5 s, and polls again.
             try {
                 $got = $this->once($options->queues, $options->visibility);
                 $failures = 0;
@@ -174,10 +154,6 @@ final class Worker
             return;
         }
 
-        // Outside the try above: the job is done, and an ack lost to a
-        // broker blip must not count as its failure and run it again.
-        // The loop reports it; the job comes back after the visibility
-        // timeout, as at-least-once delivery allows.
         $this->transport->ack($envelope);
         $this->report('processed', $envelope, null, $started);
     }
