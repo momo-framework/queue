@@ -18,6 +18,7 @@ namespace Momo\Queue;
 
 use Momo\Bus\Contracts\Bus as BusContract;
 use Momo\Bus\Contracts\Context;
+use Momo\Kernel\Security\Signer;
 use Momo\Kernel\Support\ServiceProvider;
 use Momo\Queue\Amqp\AmqpTransport;
 use Momo\Queue\Amqp\Connections;
@@ -35,6 +36,8 @@ final class QueueServiceProvider extends ServiceProvider
     public const string HANDLER_TAG = 'momo.queue.handler';
 
     public const string CONTEXT_TAG = 'momo.bus.context';
+
+    public const string SIGNER = 'momo.queue.signer';
 
     public function register(): void
     {
@@ -69,13 +72,17 @@ final class QueueServiceProvider extends ServiceProvider
 
         $default = $this->string('queue.queue', 'default');
         $transport = new Reference(Transport::class);
+        $container->register(self::SIGNER, Signer::class)
+            ->setFactory([new Reference(Signer::class), 'for'])
+            ->setArguments(['queue']);
+        $signer = new Reference(self::SIGNER);
         $container->register(Dispatcher::class, Dispatcher::class)
-            ->setArguments([$transport, $default])
+            ->setArguments([$transport, $signer, $default])
             ->setPublic(true);
         $container->setAlias(Queue::class, Dispatcher::class)->setPublic(true);
 
         foreach ([
-            Console\QueueWorkCommand::class => [$transport, new Reference(Handlers::class), $this->int('queue.retry_after', 90)],
+            Console\QueueWorkCommand::class => [$transport, new Reference(Handlers::class), $signer, $this->int('queue.retry_after', 90)],
             Console\QueueFailedCommand::class => [$transport],
             Console\QueueRetryCommand::class => [$transport],
             Console\QueueListCommand::class => [new Reference(Handlers::class), $default],

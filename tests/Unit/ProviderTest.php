@@ -20,6 +20,8 @@ use Momo\Bus\BusServiceProvider;
 use Momo\Bus\Contracts\Bus;
 use Momo\Events\EventsServiceProvider;
 use Momo\Kernel\Application;
+use Momo\Kernel\KernelServiceProvider;
+use Momo\Kernel\Security\Signer;
 use Momo\Queue\Amqp\AmqpTransport;
 use Momo\Queue\Bus\QueueCommands;
 use Momo\Queue\Bus\QueuedCommand;
@@ -50,8 +52,8 @@ final class ProviderTest extends TestCase
         $this->base = sys_get_temp_dir() . '/momo-queue-' . bin2hex(random_bytes(4));
         mkdir($this->base . '/config', 0o755, true);
         mkdir($this->base . '/bootstrap/cache', 0o755, true);
-        $this->providers([EventsServiceProvider::class, BusServiceProvider::class, ServerServiceProvider::class, QueueServiceProvider::class]);
-        file_put_contents($this->base . '/config/app.php', '<?php return ' . var_export(['modules' => [Module::class]], true) . ';');
+        $this->providers([KernelServiceProvider::class, EventsServiceProvider::class, BusServiceProvider::class, ServerServiceProvider::class, QueueServiceProvider::class]);
+        file_put_contents($this->base . '/config/app.php', '<?php return ' . var_export(['modules' => [Module::class], 'key' => str_repeat('k', 48)], true) . ';');
         file_put_contents($this->base . '/config/queue.php', '<?php return ' . var_export(['transport' => 'memory'], true) . ';');
         SendInvoiceHandler::$sent = [];
         Ran::$list = [];
@@ -69,7 +71,7 @@ final class ProviderTest extends TestCase
         $app->boot();
 
         $app->make(Queue::class)->dispatch(new SendInvoice(9));
-        new Worker($app->make(Transport::class), $app->make(Handlers::class))->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true));
+        new Worker($app->make(Transport::class), $app->make(Handlers::class), $app->make(Signer::class)->for('queue'))->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true));
 
         self::assertSame([9], SendInvoiceHandler::$sent);
         self::assertSame([QueuedCommand::class => QueueCommands::class, SendInvoice::class => SendInvoiceHandler::class], $app->make(Handlers::class)->describe());
@@ -84,7 +86,7 @@ final class ProviderTest extends TestCase
         self::assertNull($app->make(Bus::class)->dispatch(new ArchiveInvoices(2025)));
         self::assertSame([], Ran::$list);
 
-        new Worker($app->make(Transport::class), $app->make(Handlers::class))->run(new WorkerOptions(queues: ['archive'], stopWhenEmpty: true));
+        new Worker($app->make(Transport::class), $app->make(Handlers::class), $app->make(Signer::class)->for('queue'))->run(new WorkerOptions(queues: ['archive'], stopWhenEmpty: true));
 
         self::assertSame(['archived 2025'], Ran::$list);
     }

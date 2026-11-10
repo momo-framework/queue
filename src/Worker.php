@@ -17,7 +17,9 @@ declare(strict_types=1);
 namespace Momo\Queue;
 
 use Closure;
+use Momo\Kernel\Security\Signer;
 use Momo\Queue\Contracts\Transport;
+use Momo\Queue\Exceptions\QueueException;
 use Swoole\Coroutine;
 
 use function Swoole\Coroutine\run;
@@ -35,6 +37,7 @@ final class Worker
     public function __construct(
         private readonly Transport $transport,
         private readonly Handlers $handlers,
+        private readonly Signer $signer,
         private readonly Closure|null $report = null,
     ) {}
 
@@ -133,13 +136,18 @@ final class Worker
         $started = hrtime(true);
 
         try {
-            ($this->handlers->of($envelope->class))($envelope->job());
+            $payload = $envelope->job($this->signer);
+        } catch (QueueException $queueException) {
+            $this->transport->fail($envelope, $queueException);
+            $this->report('failed', $envelope, $queueException, $started);
+
+            return;
+        }
+
+        try {
+            ($this->handlers->of($envelope->class))($payload);
         } catch (Throwable $throwable) {
-            try {
-                $job = Dispatcher::jobOf($envelope->job());
-            } catch (Throwable) {
-                $job = Dispatcher::attributeOf($envelope->class);
-            }
+            $job = Dispatcher::jobOf($payload);
 
             if ($envelope->attempts >= $job->attempts) {
                 $this->transport->fail($envelope, $throwable);

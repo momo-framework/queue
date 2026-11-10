@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-10
+
+### Changed
+
+- A queued job is signed with a key derived from `APP_KEY` when it is pushed, and the worker checks the signature before it opens the job. A job that the app did not sign goes to the failed list at once, unopened and without retries. Before, anyone able to publish to RabbitMQ could make the worker build objects of their choice.
+- `Envelope::wrap()`, `Envelope::job()`, `Dispatcher` and `Worker` take the signer; in an app the container passes it (`QueueServiceProvider::SIGNER`).
+- Jobs pushed by 0.4 carry no signature: let the workers empty the queues before the update, or retry what lands in the failed list after it by pushing the jobs again.
+- Requires `momo-kernel` ^0.5.13.
+
+### Added
+
+- `Envelope::fresh()`: the same job with its attempts reset, used by `queue:retry`.
+
 ## [0.4.0] - 2026-11-07
 
 ### Changed

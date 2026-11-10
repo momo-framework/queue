@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace Momo\Queue;
 
+use Momo\Kernel\Security\Signer;
 use Momo\Queue\Contracts\Queue;
 use Momo\Queue\Contracts\Transport;
 use ReflectionClass;
@@ -28,6 +29,7 @@ final class Dispatcher implements Queue
 
     public function __construct(
         private readonly Transport $transport,
+        private readonly Signer $signer,
         private readonly string $defaultQueue = 'default',
     ) {}
 
@@ -47,7 +49,7 @@ final class Dispatcher implements Queue
 
     public function dispatch(object $job, int $delay = 0): string
     {
-        $envelope = Envelope::wrap($job, self::jobOf($job)->queue ?? $this->defaultQueue);
+        $envelope = Envelope::wrap($job, self::jobOf($job)->queue ?? $this->defaultQueue, $this->signer);
 
         $this->transport->push($envelope, max(0, $delay));
 

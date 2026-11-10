@@ -28,6 +28,7 @@ use Momo\Queue\Bus\QueueCommands;
 use Momo\Queue\Bus\QueuedCommand;
 use Momo\Queue\Dispatcher;
 use Momo\Queue\Handlers;
+use Momo\Queue\Tests\Fixtures\Keys;
 use Momo\Queue\Tests\Fixtures\Reports\CurrentUser;
 use Momo\Queue\Tests\Fixtures\Reports\ExportCalls;
 use Momo\Queue\Tests\Fixtures\Reports\ExportCallsHandler;
@@ -69,7 +70,7 @@ final class QueuedCommandTest extends TestCase
         self::assertSame([], Ran::$list);
         self::assertSame(1, $transport->size('reports'));
 
-        new Worker($transport, $handlers)->run(new WorkerOptions(queues: ['reports'], stopWhenEmpty: true));
+        new Worker($transport, $handlers, Keys::signer())->run(new WorkerOptions(queues: ['reports'], stopWhenEmpty: true));
 
         self::assertSame(['2026-10 for ann'], Ran::$list);
         self::assertSame(['ann', 'ann'], $this->checked);
@@ -83,7 +84,7 @@ final class QueuedCommandTest extends TestCase
         [$bus, $handlers] = $this->bus($transport);
         $bus->dispatch(new ExportCalls('2026-09', fail: true));
 
-        $worker = new Worker($transport, $handlers);
+        $worker = new Worker($transport, $handlers, Keys::signer());
         $worker->run(new WorkerOptions(queues: ['reports'], stopWhenEmpty: true));
         $this->now += 5;
         $worker->run(new WorkerOptions(queues: ['reports'], stopWhenEmpty: true));
@@ -99,7 +100,7 @@ final class QueuedCommandTest extends TestCase
         $jobs = new ArrayObject();
         $bus = new MessageBus(new HandlerMap([new ExportCallsHandler()]), $middleware);
         $handlers = new Handlers($jobs);
-        $queue = new QueueCommands(new Dispatcher($transport), $bus, [new CurrentUser()]);
+        $queue = new QueueCommands(new Dispatcher($transport, Keys::signer()), $bus, [new CurrentUser()]);
 
         $middleware->append($queue);
         $middleware->append($this->authorize());

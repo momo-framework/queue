@@ -19,6 +19,7 @@ namespace Momo\Queue\Tests\Integration;
 use Momo\Queue\Amqp\AmqpTransport;
 use Momo\Queue\Amqp\Connections;
 use Momo\Queue\Envelope;
+use Momo\Queue\Tests\Fixtures\Keys;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -190,12 +191,12 @@ final class AmqpTransportTest extends TestCase
         $job = new stdClass();
         $job->name = $name;
 
-        return Envelope::wrap($job, $this->queue);
+        return Envelope::wrap($job, $this->queue, Keys::signer());
     }
 
     private function job(Envelope $envelope): stdClass
     {
-        $job = $envelope->job();
+        $job = $envelope->job(Keys::signer());
         self::assertInstanceOf(stdClass::class, $job);
         self::assertIsString($job->name ?? null);
 

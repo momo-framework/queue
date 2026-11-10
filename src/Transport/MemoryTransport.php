@@ -107,7 +107,7 @@ final class MemoryTransport implements Transport
 
         unset($this->failures[$id]);
         $e = $failed->envelope;
-        $this->push(new Envelope($e->id, $e->queue, $e->class, $e->payload, 0, $e->pushedAt));
+        $this->push($e->fresh($e->pushedAt));
 
         return true;
     }

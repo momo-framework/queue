@@ -19,6 +19,7 @@ namespace Momo\Queue\Console;
 use Momo\Console\Attributes\AsCommand;
 use Momo\Console\Attributes\Option;
 use Momo\Console\Command;
+use Momo\Kernel\Security\Signer;
 use Momo\Queue\Contracts\Transport;
 use Momo\Queue\Envelope;
 use Momo\Queue\Handlers;
@@ -38,6 +39,7 @@ final class QueueWorkCommand extends Command
     public function __construct(
         private readonly Transport $transport,
         private readonly Handlers $handlers,
+        private readonly Signer $signer,
         private readonly int $visibility = 90,
     ) {
         parent::__construct();
@@ -55,7 +57,7 @@ final class QueueWorkCommand extends Command
             memoryMb: $this->number('memory', 256),
         );
 
-        $worker = new Worker($this->transport, $this->handlers, function (string $status, Envelope|null $e, Throwable|null $error, float $ms): void {
+        $worker = new Worker($this->transport, $this->handlers, $this->signer, function (string $status, Envelope|null $e, Throwable|null $error, float $ms): void {
             if (! $e instanceof Envelope) {
                 $this->output->writeln(sprintf('  <fg=gray>%s</>  <fg=red>queue unreachable</>  <fg=gray>%s</>', date('H:i:s'), $error?->getMessage() ?? ''));
 

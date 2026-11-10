@@ -19,6 +19,7 @@ namespace Momo\Queue\Tests\Unit;
 use Momo\Queue\Contracts\Transport;
 use Momo\Queue\Envelope;
 use Momo\Queue\Tests\Fixtures\Billing\Application\SendInvoice;
+use Momo\Queue\Tests\Fixtures\Keys;
 use Momo\Queue\Transport\MemoryTransport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -35,15 +36,15 @@ final class TransportTest extends TestCase
     public function push_pop_ack_release_fail_and_retry(string $kind): void
     {
         $t = $this->transport();
-        $t->push(Envelope::wrap(new SendInvoice(1), 'mail'));
-        $t->push(Envelope::wrap(new SendInvoice(2), 'mail'), 3600);
+        $t->push(Envelope::wrap(new SendInvoice(1), 'mail', Keys::signer()));
+        $t->push(Envelope::wrap(new SendInvoice(2), 'mail', Keys::signer()), 3600);
 
         self::assertSame(2, $t->size('mail'));
 
         $first = $t->pop('mail', 60);
         self::assertInstanceOf(Envelope::class, $first);
         self::assertSame(1, $first->attempts);
-        self::assertEquals(new SendInvoice(1), $first->job());
+        self::assertEquals(new SendInvoice(1), $first->job(Keys::signer()));
         self::assertNull($t->pop('mail', 60), 'the delayed job is not due and the first is reserved');
 
         $t->release($first, 0);

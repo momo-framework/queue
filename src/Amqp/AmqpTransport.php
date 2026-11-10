@@ -123,7 +123,7 @@ final readonly class AmqpTransport implements Transport
 
             $found = true;
             $e = $job->envelope;
-            $this->push(new Envelope($e->id, $e->queue, $e->class, $e->payload, 0, time()));
+            $this->push($e->fresh(time()));
 
             return true;
         });
