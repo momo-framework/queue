@@ -46,7 +46,7 @@ final class Worker
         $this->running = true;
         $this->done = 0;
 
-        if (! extension_loaded('swoole') || $options->concurrency <= 1) {
+        if ($options->concurrency <= 1) {
             $this->loop($options);
 
             return $this->done;
@@ -175,7 +175,7 @@ final class Worker
 
     private function sleep(float $seconds): void
     {
-        if (extension_loaded('swoole') && Coroutine::getCid() > 0) {
+        if (Coroutine::getCid() > 0) {
             Coroutine::sleep($seconds);
 
             return;

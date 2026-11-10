@@ -1,7 +1,7 @@
 {
     "name": "anidzen/momo-queue",
     "description": "Queue of Momo on RabbitMQ: jobs, #[Queued] commands of the bus, a coroutine worker, failed jobs and retries",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "type": "library",
     "keywords": [
         "momo",
@@ -23,6 +23,7 @@
     ],
     "require": {
         "php": "^8.5",
+        "ext-swoole": "*",
         "anidzen/momo-bus": "^0.3.3",
         "anidzen/momo-console": "^0.3",
         "anidzen/momo-kernel": "^0.5.13",

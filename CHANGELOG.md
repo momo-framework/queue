@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-10
+
+### Changed
+
+- The checks for a PHP without Swoole are gone: Momo always runs on Swoole, and the package now says so in `require` with `ext-swoole`.
+- The worker stops on SIGTERM and SIGINT through Swoole only. The pcntl fallback for a PHP without Swoole is gone.
+
 ## [0.5.1] - 2026-11-10
 
 ### Changed

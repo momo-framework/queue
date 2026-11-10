@@ -94,18 +94,8 @@ final class QueueWorkCommand extends Command
             $worker->stop();
         };
 
-        if (extension_loaded('swoole')) {
-            Process::signal(SIGTERM, $stop);
-            Process::signal(SIGINT, $stop);
-
-            return;
-        }
-
-        if (function_exists('pcntl_async_signals')) {
-            pcntl_async_signals(true);
-            pcntl_signal(SIGTERM, $stop);
-            pcntl_signal(SIGINT, $stop);
-        }
+        Process::signal(SIGTERM, $stop);
+        Process::signal(SIGINT, $stop);
     }
 
     private function number(string $name, int $default): int
