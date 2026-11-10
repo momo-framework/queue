@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- `anidzen/momo-amqp` is archived. It repeated `Momo\Queue\Amqp` of this package and no package required it. An app that still lists it in `composer.json` drops the line, nothing else changes.
+
 ## [0.5.2] - 2026-11-10
 
 ### Changed

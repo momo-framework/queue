@@ -21,10 +21,6 @@ use Momo\Queue\Envelope;
 use RuntimeException;
 use Throwable;
 
-/**
- * A transport that loses the connection on demand: the next pop() or ack()
- * throws once, as a broker restart does.
- */
 final class FlakyTransport implements Transport
 {
     public int $popFailures = 0;

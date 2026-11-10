@@ -16,7 +16,6 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Tests\Fixtures\Reports;
 
-/** What ExportCallsHandler ran: the month and the user it ran for. */
 final class Ran
 {
     /** @var list<string> */

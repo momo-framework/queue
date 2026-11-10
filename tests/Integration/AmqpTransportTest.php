@@ -151,10 +151,6 @@ final class AmqpTransportTest extends TestCase
     #[Test]
     public function coroutines_take_jobs_side_by_side_each_on_its_own_connection(): void
     {
-        if (! extension_loaded('swoole')) {
-            self::markTestSkipped('Needs the swoole extension.');
-        }
-
         for ($i = 0; $i < 60; $i++) {
             $this->transport->push($this->envelope('job' . $i));
         }

@@ -19,7 +19,6 @@ namespace Momo\Queue\Tests\Fixtures\Reports;
 use Closure;
 use Momo\Bus\Contracts\Context;
 
-/** The signed in user of a protocol, the way momo-auth keeps it. */
 final class CurrentUser implements Context
 {
     public static string|null $id = null;
