@@ -31,7 +31,7 @@
         "php-amqplib/php-amqplib": "^3.7"
     },
     "require-dev": {
-        "anidzen/momo-modules": "^0.12",
+        "anidzen/momo-modules": "^0.12.2",
         "friendsofphp/php-cs-fixer": "^3.0",
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-phpunit": "^2.0",
@@ -77,7 +77,8 @@
                     "Momo\\Queue\\Contracts\\",
                     "Momo\\Queue\\Job"
                 ]
-            }
+            },
+            "coverage": 76
         }
     },
     "scripts": {
@@ -94,7 +95,11 @@
             "@test",
             "@arch:check"
         ],
-        "arch:check": "momo-arch"
+        "arch:check": "momo-arch",
+        "coverage": [
+            "@php -d pcov.enabled=1 vendor/bin/phpunit --coverage-clover=.phpunit.cache/clover.xml",
+            "momo-coverage"
+        ]
     },
     "repositories": [
         {
