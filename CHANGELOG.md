@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-10
+
+### Changed
+
+- The health check implements `Momo\Kernel\Health\Check` from the kernel. The package no longer requires the `momo-health` module and conflicts with its releases before 0.2, which look for the old interface.
+- Requires `momo-kernel` ^0.5.13.
+
 ## [0.5.0] - 2026-11-10
 
 ### Changed

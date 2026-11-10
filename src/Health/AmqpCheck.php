@@ -16,8 +16,8 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Health;
 
-use Momo\Health\Contracts\Check;
-use Momo\Health\Contracts\Result;
+use Momo\Kernel\Health\Check;
+use Momo\Kernel\Health\Result;
 use Momo\Queue\Amqp\Connections;
 use Throwable;
 
