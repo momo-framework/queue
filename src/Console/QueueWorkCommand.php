@@ -33,6 +33,7 @@ use Throwable;
 #[Option(name: 'concurrency', description: 'Jobs run at once, one coroutine each', default: '1')]
 #[Option(name: 'max-jobs', description: 'Stop after this many jobs', default: '0')]
 #[Option(name: 'stop-when-empty', description: 'Stop when the queues are empty', noValue: true)]
+#[Option(name: 'max-failures', description: 'Exit with code 1 after this many failed polls in a row so the supervisor starts a fresh process, 0 never', default: '12')]
 #[Option(name: 'memory', description: 'Stop above this many MB so the supervisor restarts the process', default: '256')]
 final class QueueWorkCommand extends Command
 {
@@ -55,6 +56,7 @@ final class QueueWorkCommand extends Command
             stopWhenEmpty: $this->option('stop-when-empty') === true,
             visibility: $this->visibility,
             memoryMb: $this->number('memory', 256),
+            maxFailures: max(0, $this->number('max-failures', 12)),
         );
 
         $worker = new Worker($this->transport, $this->handlers, $this->signer, function (string $status, Envelope|null $e, Throwable|null $error, float $ms): void {
@@ -76,6 +78,12 @@ final class QueueWorkCommand extends Command
         $this->output->writeln(sprintf('  <options=bold>momo queue</>  <fg=gray>%s · %d at once</>', implode(', ', $options->queues), $options->concurrency));
 
         $done = $worker->run($options);
+        if ($worker->lostBroker()) {
+            $this->output->writeln(sprintf('  <fg=red>the queue stayed unreachable for %d polls in a row, exiting for a restart</>  <fg=gray>after %d jobs</>', $options->maxFailures, $done));
+
+            return self::FAILURE;
+        }
+
         $this->output->writeln(sprintf('  <fg=gray>stopped after %d jobs</>', $done));
 
         return self::SUCCESS;

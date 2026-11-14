@@ -193,6 +193,24 @@ final class WorkerTest extends TestCase
         self::assertSame([9], SendInvoiceHandler::$sent);
     }
 
+    #[Test]
+    public function the_worker_gives_up_on_a_broker_that_stays_down_so_the_supervisor_restarts_it(): void
+    {
+        $flaky = new FlakyTransport($this->transport);
+        $flaky->popFailures = 100;
+
+        $log = [];
+
+        $worker = new Worker($flaky, $this->handlers, Keys::signer(), static function (string $status) use (&$log): void {
+            $log[] = $status;
+        });
+        $worker->run(new WorkerOptions(queues: ['mail'], idle: 0.0001, maxFailures: 3));
+
+        self::assertTrue($worker->lostBroker());
+        self::assertSame(['error', 'error', 'error'], $log);
+        self::assertSame(97, $flaky->popFailures);
+    }
+
     private function worker(): Worker
     {
         return new Worker($this->transport, $this->handlers, Keys::signer());

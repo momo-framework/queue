@@ -16,8 +16,7 @@
 </div>
 
 <div align="center">
-  <b>Առաջադրանքների հերթ Momo-ի համար․ Redis և բազայի տրանսպորտներ, մշակիչներ ըստ մոդուլի, զուգահեռ worker-ներ կորուտիններում։</b><br/>
-  Մշակիչները մոդուլի Presentation/Queue-ում են, մեկ worker-ը միանգամից շատ առաջադրանքներ է կատարում coroutine-ներում։
+  <b>Առաջադրանքների հերթ Momo-ի համար RabbitMQ-ի վրա․ մշակիչներ մոդուլներում, ստորագրված առաջադրանքներ, զուգահեռ worker-ներ coroutine-ներով։</b>
 </div>
 
 <div align="center">
@@ -28,16 +27,16 @@
 
 ## Հնարավորություններ
 
-- Առաջադրանքը արժեքներով օբյեկտ է, իսկ մշակիչը՝ `JobHandler` `__invoke(SendInvoice $job)`-ով մոդուլի `Presentation/Queue/`-ում, որը գտնվում է առաջադրանքի տիպով
-- `#[Job(queue: 'mail', attempts: 5, backoff: [10, 60, 300])]`-ը սահմանում է հերթը, փորձերի քանակը և դադարները. լռելյայն էքսպոնենցիալ է full jitter-ով
-- `redis` տրանսպորտ. պատրաստ առաջադրանքների ցուցակ, հետաձգված և զբաղված sorted set-եր, յուրաքանչյուր քայլ մեկ Lua script, ընկած worker-ի առաջադրանքը վերադառնում է `retry_after` վայրկյանից
-- `database` տրանսպորտ. տրանզակցիայի ներսում դրված առաջադրանքը commit է լինում տվյալների հետ. worker-ները վերցնում են `FOR UPDATE SKIP LOCKED`-ով
-- `sync`-ը մշակիչը կատարում է անմիջապես, `memory`-ն առաջադրանքները պահում է պրոցեսում թեստերի համար
-- `queue:work --concurrency=20`. քսան առաջադրանք միանգամից մեկ պրոցեսում, SIGTERM-ով ընթացիկները ավարտվում են
-- Ձախողված առաջադրանքները պահվում են. `queue:failed`, `queue:retry <id>|all`
-- `queue:list`-ը ցույց է տալիս բոլոր առաջադրանքները մշակիչով, հերթով և փորձերի քանակով
-- `make:job Billing SendInvoice`-ը ստեղծում է առաջադրանքը և նրա մշակիչը
-- Bus-ի հրամանը `#[Queued(queue: 'reports', attempts: 3)]`-ով գնում է հերթ իրավունքի ստուգումից հետո, ուղարկողը ստանում է `null`. worker-ը այն ուղարկում է նույն bus-ին նույն օգտատիրոջ և թիմի անունից, ուստի իրավունքը, տրանզակցիան և commit-ից հետո իրադարձությունները աշխատում են այնտեղ էլ։ Հավելվածի յուրաքանչյուր `Momo\Bus\Contracts\Context` իր վիճակը տանում է հրամանի հետ
+- Առաջադրանքը արժեքների պարզ օբյեկտ է, իր մշակիչը `JobHandler` է `__invoke(SendInvoice $job)`-ով մոդուլի `Presentation/Queue/`-ում, գտնվում է առաջադրանքի տիպով
+- `#[Job(queue: 'mail', attempts: 5, backoff: [10, 60, 300])]`-ը տալիս է հերթը, փորձերի քանակը և կրկնության ուշացումները; լռելյայն ուշացումը էքսպոնենցիալ է՝ լրիվ ջիթերով
+- Միայն RabbitMQ․ կայուն հերթեր, պահպանվող հաղորդագրություններ, ուշացումը TTL-ով հերթ է, որը հաղորդագրությունը վերադարձնում է իր հերթ, ձախողված առաջադրանքները սպասում են `momo.failed`-ում
+- Ամեն առաջադրանք ստորագրված է `APP_KEY`-ով․ բրոքերում փոխված կամ այլ հավելվածի ստորագրած մարմինը չի բացվում և անմիջապես գնում է ձախողվածների մեջ
+- Մահացած worker-ի առաջադրանքը վերադառնում է հերթ, երբ բրոքերը տեսնում է, որ կապը կորել է
+- `queue:work --concurrency=20`․ քսան առաջադրանք միաժամանակ մեկ պրոցեսում, SIGTERM-ը թույլ է տալիս ավարտել դրանք
+- Եթե բրոքերը անհասանելի է `--max-failures` հարցում անընդմեջ (լռելյայն 12, մոտ մեկ րոպե), `queue:work`-ը դուրս է գալիս 1 կոդով, և docker-ը կամ supervisor-ը նոր պրոցես է գործարկում՝ մեռած կապի վրա worker պահելու փոխարեն
+- Ձախողված առաջադրանքները պահվում են․ `queue:failed`, `queue:retry <id>|all`; `queue:list`-ը ցույց է տալիս ամեն առաջադրանք՝ մշակիչով, հերթով և փորձերով
+- `memory` տրանսպորտ թեստերի համար․ `queue.transport = memory`-ն առաջադրանքները պահում է պրոցեսում
+- Bus-ի հրամանը `#[Queued(queue: 'reports', attempts: 3)]`-ով գնում է հերթ իրավունքների ստուգումից հետո, ուղարկողը ստանում է `null`; worker-ը այն տալիս է նույն bus-ին նույն օգտատիրոջ և թիմի անունից, ուստի իրավունքները, տրանզակցիան և commit-ից հետո իրադարձությունները այնտեղ նորից են աշխատում։ Հավելվածի ամեն `Momo\Bus\Contracts\Context` իր վիճակը տանում է հրամանի հետ
 
 ## Ինչու
 
@@ -46,12 +45,7 @@
 ## Արագ մեկնարկ
 
 ```bash
-composer require anidzen/momo-queue anidzen/momo-redis
-momo make:job Billing SendInvoice
-```
-
-```dotenv
-QUEUE_CONNECTION=redis
+composer require anidzen/momo-queue
 ```
 
 ```php
@@ -95,25 +89,24 @@ momo queue:work --queue=mail,default --concurrency=20
 
 ## Կարգավորում
 
-- `QUEUE_CONNECTION`, լռելյայն `sync`. `sync`, `memory`, `redis` կամ `database`
-- `QUEUE_REDIS_CONNECTION`, լռելյայն `default`. կապ `config/redis.php`-ից
-- `QUEUE_DB_CONNECTION`. կապ `config/database.php`-ից, դատարկի դեպքում հիմնականը
-- `config/queue.php`. `queue` (լռելյայն հերթ), `retry_after` (քանի վայրկյան է վերցված առաջադրանքը թաքնված)
-
-`database` տրանսպորտը բերում է `jobs` և `failed_jobs` աղյուսակները, դրանք ստեղծում է `momo migrate`-ը։
+- `QUEUE_NAME`, լռելյայն `default`․ առանց `#[Job(queue:)]` առաջադրանքի հերթը
+- `QUEUE_RETRY_AFTER`, լռելյայն 90․ քանի վայրկյան կարող է աշխատել վերցված առաջադրանքը
+- `QUEUE_FAILED`, լռելյայն `momo.failed`․ ձախողված առաջադրանքների հերթը
+- `AMQP_HOST`, `AMQP_PORT`, `AMQP_USER`, `AMQP_PASSWORD`, `AMQP_VHOST`․ որտեղ է RabbitMQ-ն, գաղտնաբառը գաղտնիք է
+- `AMQP_HEARTBEAT` (30), `AMQP_TIMEOUT` (5.0), `AMQP_POOL` (32)․ կապի heartbeat-ը և ժամանակային սահմանները, կապեր մեկ worker-ի համար
 
 ## Մշակում
 
 ```bash
-composer install --ignore-platform-req=ext-redis
+composer install
 composer check
 ```
 
-Redis-ի թեստերը գործարկվում են, երբ տրված է `REDIS_HOST`, բազայի տրանսպորտը ստուգվում է SQLite-ով։
+RabbitMQ-ի թեստերը աշխատում են, երբ տրված է `AMQP_HOST`․ `docker run -d -p 5672:5672 rabbitmq:4-alpine`, հետո `AMQP_HOST=127.0.0.1 composer test`։
 
 ## Կարգավիճակ
 
-0.3։ Հանրային API՝ `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`։
+0.6. Հանրային API․ `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`։
 
 ## Լիցենզիա
 

@@ -16,8 +16,7 @@
 </div>
 
 <div align="center">
-  <b>Очередь задач для Momo: транспорты Redis и база, обработчики по модулям, параллельные воркеры на корутинах.</b><br/>
-  Обработчики лежат в Presentation/Queue модуля, один воркер выполняет много задач сразу в корутинах.
+  <b>Очередь задач для Momo на RabbitMQ: обработчики в модулях, подписанные задачи, параллельные воркеры на корутинах.</b>
 </div>
 
 <div align="center">
@@ -28,16 +27,16 @@
 
 ## Возможности
 
-- Задача это объект со значениями, её обработчик это `JobHandler` с `__invoke(SendInvoice $job)` в `Presentation/Queue/` модуля, он находится по типу задачи
-- `#[Job(queue: 'mail', attempts: 5, backoff: [10, 60, 300])]` задаёт очередь, число попыток и паузы между ними; по умолчанию экспонента с полным jitter
-- Транспорт `redis`: список готовых задач, отложенные и занятые в sorted set, каждый шаг одним Lua-скриптом, задача упавшего воркера возвращается через `retry_after` секунд
-- Транспорт `database`: задача, поставленная внутри транзакции, коммитится вместе с данными; воркеры берут задачи через `FOR UPDATE SKIP LOCKED`
-- `sync` выполняет обработчик сразу при постановке, `memory` держит задачи в процессе для тестов
-- `queue:work --concurrency=20`: двадцать задач сразу в одном процессе, по SIGTERM текущие доделываются
-- Упавшие задачи сохраняются: `queue:failed`, `queue:retry <id>|all`
-- `queue:list` показывает все задачи с обработчиком, очередью и числом попыток
-- `make:job Billing SendInvoice` создаёт задачу и её обработчик
-- Команда шины с `#[Queued(queue: 'reports', attempts: 3)]` уходит в очередь после проверки права, отправитель получает `null`; воркер шлёт её в ту же шину от имени того же пользователя и команды, поэтому право, транзакция и события после коммита работают и там. Каждый `Momo\Bus\Contracts\Context` приложения переносит своё состояние вместе с командой
+- Задача это простой объект значений, её обработчик это `JobHandler` с `__invoke(SendInvoice $job)` в `Presentation/Queue/` модуля, находится по типу задачи
+- `#[Job(queue: 'mail', attempts: 5, backoff: [10, 60, 300])]` задаёт очередь, число попыток и задержки повтора; по умолчанию экспоненциальная задержка с полным джиттером
+- Только RabbitMQ: стойкие очереди, сохраняемые сообщения, задержка это очередь с TTL, которая возвращает сообщение в свою очередь, упавшие задачи ждут в `momo.failed`
+- Каждая задача подписана `APP_KEY`: тело, изменённое в брокере или подписанное другим приложением, не открывается и сразу уходит в упавшие
+- Задача умершего воркера возвращается в очередь, когда брокер видит, что соединение пропало
+- `queue:work --concurrency=20`: двадцать задач одновременно в одном процессе, SIGTERM даёт им доработать
+- Если брокер недоступен `--max-failures` опросов подряд (12 по умолчанию, около минуты), `queue:work` выходит с кодом 1, и docker или супервизор запускает свежий процесс, а не держит воркер на мёртвом соединении
+- Упавшие задачи хранятся: `queue:failed`, `queue:retry <id>|all`; `queue:list` показывает каждую задачу с обработчиком, очередью и попытками
+- Транспорт `memory` для тестов: `queue.transport = memory` держит задачи в процессе
+- Команда шины с `#[Queued(queue: 'reports', attempts: 3)]` уходит в очередь после проверки прав, отправитель получает `null`; воркер отдаёт её той же шине от имени того же пользователя и команды, поэтому права, транзакция и события после коммита срабатывают там заново. Каждый `Momo\Bus\Contracts\Context` приложения переносит своё состояние вместе с командой
 
 ## Зачем
 
@@ -46,12 +45,7 @@
 ## Быстрый старт
 
 ```bash
-composer require anidzen/momo-queue anidzen/momo-redis
-momo make:job Billing SendInvoice
-```
-
-```dotenv
-QUEUE_CONNECTION=redis
+composer require anidzen/momo-queue
 ```
 
 ```php
@@ -95,25 +89,24 @@ momo queue:work --queue=mail,default --concurrency=20
 
 ## Настройка
 
-- `QUEUE_CONNECTION`, по умолчанию `sync`: `sync`, `memory`, `redis` или `database`
-- `QUEUE_REDIS_CONNECTION`, по умолчанию `default`: соединение из `config/redis.php`
-- `QUEUE_DB_CONNECTION`: соединение из `config/database.php`, если пусто, основное
-- `config/queue.php`: `queue` (очередь по умолчанию), `retry_after` (сколько секунд взятая задача скрыта)
-
-Транспорт `database` приносит таблицы `jobs` и `failed_jobs`, их создаёт `momo migrate`.
+- `QUEUE_NAME`, по умолчанию `default`: очередь задачи без `#[Job(queue:)]`
+- `QUEUE_RETRY_AFTER`, по умолчанию 90: сколько секунд может идти взятая задача
+- `QUEUE_FAILED`, по умолчанию `momo.failed`: очередь упавших задач
+- `AMQP_HOST`, `AMQP_PORT`, `AMQP_USER`, `AMQP_PASSWORD`, `AMQP_VHOST`: где RabbitMQ, пароль это секрет
+- `AMQP_HEARTBEAT` (30), `AMQP_TIMEOUT` (5.0), `AMQP_POOL` (32): heartbeat и таймауты соединения, соединений на воркер
 
 ## Разработка
 
 ```bash
-composer install --ignore-platform-req=ext-redis
+composer install
 composer check
 ```
 
-Тесты на Redis запускаются, если задан `REDIS_HOST`, транспорт базы проверяется на SQLite.
+Тесты на RabbitMQ идут, когда задан `AMQP_HOST`: `docker run -d -p 5672:5672 rabbitmq:4-alpine`, затем `AMQP_HOST=127.0.0.1 composer test`.
 
 ## Статус
 
-0.3. Публичный API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+0.6. Публичный API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
 
 ## Лицензия
 

@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-14
+
+### Fixed
+
+- `queue:work` no longer runs forever on a broker that stays down. After `--max-failures` failed polls in a row (12 by default, about a minute with the backoff) it exits with code 1, so docker or the supervisor starts a fresh process. `0` keeps the old endless retry.
+
+### Changed
+
+- README in en, ru and hy describes the RabbitMQ transport, its keys and the signed jobs. The `redis`, `database` and `sync` transports and `make:job` it still listed left the package earlier.
+
 ### Removed
 
 - `anidzen/momo-amqp` is archived. It repeated `Momo\Queue\Amqp` of this package and no package required it. An app that still lists it in `composer.json` drops the line, nothing else changes.

@@ -16,8 +16,7 @@
 </div>
 
 <div align="center">
-  <b>Job queue for Momo: Redis and database transports, handlers per module, concurrent workers in coroutines.</b><br/>
-  Handlers live in each module's Presentation/Queue, one worker runs many jobs at once in coroutines.
+  <b>Job queue for Momo on RabbitMQ: handlers per module, signed jobs, concurrent workers in coroutines.</b>
 </div>
 
 <div align="center">
@@ -30,13 +29,13 @@
 
 - A job is a plain object of values, its handler a `JobHandler` with `__invoke(SendInvoice $job)` in `Presentation/Queue/` of a module, found by the job type
 - `#[Job(queue: 'mail', attempts: 5, backoff: [10, 60, 300])]` sets queue, attempts and retry delays; the default backoff is exponential with full jitter
-- `redis` transport: ready list, delayed and reserved sorted sets, every step one Lua script, a job of a dead worker returns after `retry_after` seconds
-- `database` transport: a job dispatched inside a transaction commits with your data; workers take jobs with `FOR UPDATE SKIP LOCKED`
-- `sync` runs the handler on dispatch, `memory` keeps jobs in the process for tests
+- RabbitMQ only: durable queues, persistent messages, a delay is a TTL queue that dead-letters back into its queue, failed jobs wait in `momo.failed`
+- Every job is signed with `APP_KEY`: a payload changed in the broker or signed by another app is never opened and goes straight to the failed jobs
+- A job whose worker died returns to its queue when the broker sees the connection gone
 - `queue:work --concurrency=20`: twenty jobs at once in one process, SIGTERM lets them finish
-- Failed jobs are kept: `queue:failed`, `queue:retry <id>|all`
-- `queue:list` shows every job with its handler, queue and attempts
-- `make:job Billing SendInvoice` writes the job and its handler
+- A broker that stays down for `--max-failures` polls in a row (12 by default, about a minute) ends `queue:work` with code 1, so docker or the supervisor starts a fresh process instead of keeping a worker on a dead link
+- Failed jobs are kept: `queue:failed`, `queue:retry <id>|all`; `queue:list` shows every job with its handler, queue and attempts
+- The `memory` transport for tests: `queue.transport = memory` keeps jobs in the process
 - A command of the bus with `#[Queued(queue: 'reports', attempts: 3)]` goes to the queue after the permission check, the sender gets `null`; the worker sends it to the same bus as the user and team who sent it, so the permission, the transaction and the events after commit run there again. Every `Momo\Bus\Contracts\Context` of the app carries its state with the command
 
 ## Why
@@ -46,12 +45,7 @@ A worker process that runs one job at a time idles while each job waits on HTTP 
 ## Quick start
 
 ```bash
-composer require anidzen/momo-queue anidzen/momo-redis
-momo make:job Billing SendInvoice
-```
-
-```dotenv
-QUEUE_CONNECTION=redis
+composer require anidzen/momo-queue
 ```
 
 ```php
@@ -95,25 +89,24 @@ momo queue:work --queue=mail,default --concurrency=20
 
 ## Configuration
 
-- `QUEUE_CONNECTION`, default `sync`: `sync`, `memory`, `redis` or `database`
-- `QUEUE_REDIS_CONNECTION`, default `default`: a connection of `config/redis.php`
-- `QUEUE_DB_CONNECTION`: a connection of `config/database.php`, the default one when empty
-- `config/queue.php`: `queue` (default queue name), `retry_after` (seconds a taken job stays hidden)
-
-The `database` transport brings its `jobs` and `failed_jobs` tables; `momo migrate` creates them.
+- `QUEUE_NAME`, default `default`: the queue of a job without `#[Job(queue:)]`
+- `QUEUE_RETRY_AFTER`, default 90: seconds a taken job may run
+- `QUEUE_FAILED`, default `momo.failed`: the queue of failed jobs
+- `AMQP_HOST`, `AMQP_PORT`, `AMQP_USER`, `AMQP_PASSWORD`, `AMQP_VHOST`: where RabbitMQ is, the password is a secret
+- `AMQP_HEARTBEAT` (30), `AMQP_TIMEOUT` (5.0), `AMQP_POOL` (32): heartbeat and timeouts of a connection, connections per worker
 
 ## Development
 
 ```bash
-composer install --ignore-platform-req=ext-redis
+composer install
 composer check
 ```
 
-Tests against Redis run when `REDIS_HOST` is set, the database transport is tested on SQLite.
+Tests against RabbitMQ run when `AMQP_HOST` is set: `docker run -d -p 5672:5672 rabbitmq:4-alpine`, then `AMQP_HOST=127.0.0.1 composer test`.
 
 ## Status
 
-0.3. Public API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+0.6. Public API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
 
 ## License
 

@@ -33,6 +33,8 @@ final class Worker
 
     private int $done = 0;
 
+    private bool $lostBroker = false;
+
     /** @param null|Closure(string, null|Envelope, null|Throwable, float): void $report */
     public function __construct(
         private readonly Transport $transport,
@@ -45,6 +47,7 @@ final class Worker
     {
         $this->running = true;
         $this->done = 0;
+        $this->lostBroker = false;
 
         if ($options->concurrency <= 1) {
             $this->loop($options);
@@ -78,6 +81,11 @@ final class Worker
         $this->running = false;
     }
 
+    public function lostBroker(): bool
+    {
+        return $this->lostBroker;
+    }
+
     /** @param list<string> $queues */
     public function once(array $queues, int $visibility = 90): bool
     {
@@ -109,6 +117,13 @@ final class Worker
                 $failures = 0;
             } catch (Throwable $throwable) {
                 $this->report('error', null, $throwable, hrtime(true));
+                if ($options->maxFailures > 0 && $failures + 1 >= $options->maxFailures) {
+                    $this->lostBroker = true;
+                    $this->stop();
+
+                    break;
+                }
+
                 $this->sleep(min(5.0, max($options->idle, 0.1) * 2 ** min(++$failures, 6)));
 
                 continue;

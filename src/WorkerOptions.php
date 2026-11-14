@@ -27,5 +27,6 @@ final readonly class WorkerOptions
         public int $visibility = 90,
         public float $idle = 1.0,
         public int $memoryMb = 256,
+        public int $maxFailures = 12,
     ) {}
 }
