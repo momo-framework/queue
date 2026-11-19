@@ -34,8 +34,8 @@ final readonly class Job
             return $this->backoff[min($next - 2, count($this->backoff) - 1)] ?? 0;
         }
 
-        $cap = min(3600, 2 ** min($next, 12));
+        $cap = min(3600, 1 << max(0, min($next, 12)));
 
-        return random_int(1, max(1, $cap));
+        return random_int(1, $cap);
     }
 }

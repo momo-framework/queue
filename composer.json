@@ -1,7 +1,7 @@
 {
     "name": "anidzen/momo-queue",
     "description": "Queue of Momo on RabbitMQ: jobs, #[Queued] commands of the bus, a coroutine worker, failed jobs and retries",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "type": "library",
     "keywords": [
         "momo",

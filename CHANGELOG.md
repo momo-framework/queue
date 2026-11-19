@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-19
+
+### Fixed
+
+- The backoff of `Job` passes phpstan 2.3.6 and newer, which stopped the analyse step and the publish of 0.6.1. The delays stay the same. 0.6.1 never reached the registry, so 0.6.2 is the first release with `JobObserver`.
+
 ## [0.6.1] - 2026-11-19
 
 ### Added
