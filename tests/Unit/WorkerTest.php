@@ -16,11 +16,14 @@ declare(strict_types=1);
 
 namespace Momo\Queue\Tests\Unit;
 
+use Momo\Queue\Contracts\JobObserver;
 use Momo\Queue\Dispatcher;
 use Momo\Queue\Envelope;
 use Momo\Queue\Exceptions\QueueException;
 use Momo\Queue\Handlers;
 use Momo\Queue\Job;
+use Momo\Queue\JobRun;
+use Momo\Queue\RunStatus;
 use Momo\Queue\Tests\Fixtures\Billing\Application\SendInvoice;
 use Momo\Queue\Tests\Fixtures\Billing\Presentation\Queue\SendInvoiceHandler;
 use Momo\Queue\Tests\Fixtures\FlakyTransport;
@@ -32,6 +35,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Throwable;
 
 /** @internal */
 #[CoversClass(Worker::class)]
@@ -40,6 +45,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Envelope::class)]
 #[CoversClass(Job::class)]
 #[CoversClass(Handlers::class)]
+#[CoversClass(JobRun::class)]
 final class WorkerTest extends TestCase
 {
     private int $now = 1_000;
@@ -69,6 +75,41 @@ final class WorkerTest extends TestCase
         $this->worker()->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true));
 
         self::assertSame([1, 2], SendInvoiceHandler::$sent);
+    }
+
+    #[Test]
+    public function every_run_reaches_the_observers_and_a_broken_observer_stops_nothing(): void
+    {
+        $observer = new class implements JobObserver {
+            /** @var list<string> */
+            public array $seen = [];
+
+            public function observe(JobRun $run): void
+            {
+                $this->seen[] = $run->status->value . ' ' . $run->envelope->class . ($run->error instanceof Throwable ? ' !' : '');
+            }
+        };
+        $broken = new class implements JobObserver {
+            public function observe(JobRun $run): void
+            {
+                throw new RuntimeException('clickhouse down');
+            }
+        };
+        $log = [];
+        $queue = new Dispatcher($this->transport, Keys::signer());
+        $queue->dispatch(new SendInvoice(4));
+        $queue->dispatch(new SendInvoice(5, fail: true));
+
+        $worker = new Worker($this->transport, $this->handlers, Keys::signer(), static function (string $status, Envelope|null $e, Throwable|null $error) use (&$log): void {
+            $log[] = $status . ($status === 'unobserved' ? ' ' . $error?->getMessage() : '');
+        }, [$broken, $observer]);
+        $worker->run(new WorkerOptions(queues: ['mail'], stopWhenEmpty: true));
+
+        self::assertSame([4], SendInvoiceHandler::$sent);
+        self::assertSame(RunStatus::Processed->value . ' ' . SendInvoice::class, $observer->seen[0]);
+        self::assertStringStartsWith(RunStatus::Retried->value . ' ' . SendInvoice::class, $observer->seen[1]);
+        self::assertStringEndsWith(' !', $observer->seen[1]);
+        self::assertContains('unobserved clickhouse down', $log);
     }
 
     #[Test]

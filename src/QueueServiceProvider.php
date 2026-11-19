@@ -23,6 +23,7 @@ use Momo\Kernel\Support\ServiceProvider;
 use Momo\Queue\Amqp\AmqpTransport;
 use Momo\Queue\Amqp\Connections;
 use Momo\Queue\Contracts\JobHandler;
+use Momo\Queue\Contracts\JobObserver;
 use Momo\Queue\Contracts\Queue;
 use Momo\Queue\Contracts\Transport;
 use Momo\Queue\Transport\MemoryTransport;
@@ -36,6 +37,8 @@ final class QueueServiceProvider extends ServiceProvider
     public const string HANDLER_TAG = 'momo.queue.handler';
 
     public const string CONTEXT_TAG = 'momo.bus.context';
+
+    public const string OBSERVER_TAG = 'momo.queue.observer';
 
     public const string SIGNER = 'momo.queue.signer';
 
@@ -70,6 +73,8 @@ final class QueueServiceProvider extends ServiceProvider
         $this->tag(JobHandler::class, self::HANDLER_TAG);
         $container->register(Handlers::class, Handlers::class)->setArguments([$this->tagged(self::HANDLER_TAG)])->setPublic(true);
 
+        $this->tag(JobObserver::class, self::OBSERVER_TAG);
+
         $default = $this->string('queue.queue', 'default');
         $transport = new Reference(Transport::class);
         $container->register(self::SIGNER, Signer::class)
@@ -82,7 +87,7 @@ final class QueueServiceProvider extends ServiceProvider
         $container->setAlias(Queue::class, Dispatcher::class)->setPublic(true);
 
         foreach ([
-            Console\QueueWorkCommand::class => [$transport, new Reference(Handlers::class), $signer, $this->int('queue.retry_after', 90)],
+            Console\QueueWorkCommand::class => [$transport, new Reference(Handlers::class), $signer, $this->int('queue.retry_after', 90), $this->tagged(self::OBSERVER_TAG)],
             Console\QueueFailedCommand::class => [$transport],
             Console\QueueRetryCommand::class => [$transport],
             Console\QueueListCommand::class => [new Reference(Handlers::class), $default],

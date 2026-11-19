@@ -35,6 +35,7 @@
 - `queue:work --concurrency=20`: двадцать задач одновременно в одном процессе, SIGTERM даёт им доработать
 - Если брокер недоступен `--max-failures` опросов подряд (12 по умолчанию, около минуты), `queue:work` выходит с кодом 1, и docker или супервизор запускает свежий процесс, а не держит воркер на мёртвом соединении
 - Упавшие задачи хранятся: `queue:failed`, `queue:retry <id>|all`; `queue:list` показывает каждую задачу с обработчиком, очередью и попытками
+- `JobObserver` в любом модуле видит каждый запуск `queue:work`: выполнена, повтор или упала, с ошибкой и миллисекундами. История задач, метрики или оповещение — один класс; упавший наблюдатель не останавливает ни одной задачи
 - Транспорт `memory` для тестов: `queue.transport = memory` держит задачи в процессе
 - Команда шины с `#[Queued(queue: 'reports', attempts: 3)]` уходит в очередь после проверки прав, отправитель получает `null`; воркер отдаёт её той же шине от имени того же пользователя и команды, поэтому права, транзакция и события после коммита срабатывают там заново. Каждый `Momo\Bus\Contracts\Context` приложения переносит своё состояние вместе с командой
 
@@ -106,7 +107,7 @@ composer check
 
 ## Статус
 
-0.6. Публичный API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+0.6. Публичный API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Contracts\JobObserver`, `JobRun`, `RunStatus`, `Worker`, `WorkerOptions`.
 
 ## Лицензия
 

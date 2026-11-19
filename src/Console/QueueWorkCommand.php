@@ -20,6 +20,7 @@ use Momo\Console\Attributes\AsCommand;
 use Momo\Console\Attributes\Option;
 use Momo\Console\Command;
 use Momo\Kernel\Security\Signer;
+use Momo\Queue\Contracts\JobObserver;
 use Momo\Queue\Contracts\Transport;
 use Momo\Queue\Envelope;
 use Momo\Queue\Handlers;
@@ -37,11 +38,13 @@ use Throwable;
 #[Option(name: 'memory', description: 'Stop above this many MB so the supervisor restarts the process', default: '256')]
 final class QueueWorkCommand extends Command
 {
+    /** @param iterable<JobObserver> $observers */
     public function __construct(
         private readonly Transport $transport,
         private readonly Handlers $handlers,
         private readonly Signer $signer,
         private readonly int $visibility = 90,
+        private readonly iterable $observers = [],
     ) {
         parent::__construct();
     }
@@ -69,10 +72,11 @@ final class QueueWorkCommand extends Command
             $line = sprintf('  <fg=gray>%s</>  %s  %s  <fg=gray>#%d %.0f ms</>', date('H:i:s'), match ($status) {
                 'processed' => '<fg=green>done</>',
                 'retried' => '<fg=yellow>retry</>',
+                'unobserved' => '<fg=yellow>not observed</>',
                 default => '<fg=red>failed</>',
             }, $e->class, $e->attempts, $ms);
             $this->output->writeln($error instanceof Throwable ? $line . '  <fg=gray>' . $error->getMessage() . '</>' : $line);
-        });
+        }, $this->observers);
 
         $this->trapSignals($worker);
         $this->output->writeln(sprintf('  <options=bold>momo queue</>  <fg=gray>%s · %d at once</>', implode(', ', $options->queues), $options->concurrency));

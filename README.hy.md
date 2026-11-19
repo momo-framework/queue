@@ -35,6 +35,7 @@
 - `queue:work --concurrency=20`․ քսան առաջադրանք միաժամանակ մեկ պրոցեսում, SIGTERM-ը թույլ է տալիս ավարտել դրանք
 - Եթե բրոքերը անհասանելի է `--max-failures` հարցում անընդմեջ (լռելյայն 12, մոտ մեկ րոպե), `queue:work`-ը դուրս է գալիս 1 կոդով, և docker-ը կամ supervisor-ը նոր պրոցես է գործարկում՝ մեռած կապի վրա worker պահելու փոխարեն
 - Ձախողված առաջադրանքները պահվում են․ `queue:failed`, `queue:retry <id>|all`; `queue:list`-ը ցույց է տալիս ամեն առաջադրանք՝ մշակիչով, հերթով և փորձերով
+- Ցանկացած մոդուլի `JobObserver`-ը տեսնում է `queue:work`-ի ամեն գործարկում՝ կատարված, կրկնված կամ ձախողված, սխալով և միլիվայրկյաններով։ Առաջադրանքների պատմությունը, չափումները կամ ծանուցումը մեկ դաս է, իսկ ընկած դիտորդը ոչ մի առաջադրանք չի կանգնեցնում
 - `memory` տրանսպորտ թեստերի համար․ `queue.transport = memory`-ն առաջադրանքները պահում է պրոցեսում
 - Bus-ի հրամանը `#[Queued(queue: 'reports', attempts: 3)]`-ով գնում է հերթ իրավունքների ստուգումից հետո, ուղարկողը ստանում է `null`; worker-ը այն տալիս է նույն bus-ին նույն օգտատիրոջ և թիմի անունից, ուստի իրավունքները, տրանզակցիան և commit-ից հետո իրադարձությունները այնտեղ նորից են աշխատում։ Հավելվածի ամեն `Momo\Bus\Contracts\Context` իր վիճակը տանում է հրամանի հետ
 
@@ -106,7 +107,7 @@ RabbitMQ-ի թեստերը աշխատում են, երբ տրված է `AMQP_HOS
 
 ## Կարգավիճակ
 
-0.6. Հանրային API․ `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`։
+0.6. Հանրային API․ `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Contracts\JobObserver`, `JobRun`, `RunStatus`, `Worker`, `WorkerOptions`։
 
 ## Լիցենզիա
 

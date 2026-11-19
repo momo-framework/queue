@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-19
+
+### Added
+
+- `Contracts\JobObserver`: `queue:work` hands it every run of a job as a `JobRun` with its `RunStatus` (`processed`, `retried`, `failed`), the envelope, the error and the milliseconds. An app keeps a history of jobs or counts them with one class in `Infrastructure/`, no worker of its own. An observer that throws is shown as `not observed` and stops no job.
+
 ## [0.6.0] - 2026-11-14
 
 ### Fixed

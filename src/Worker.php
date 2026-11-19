@@ -17,7 +17,9 @@ declare(strict_types=1);
 namespace Momo\Queue;
 
 use Closure;
+use DateTimeImmutable;
 use Momo\Kernel\Security\Signer;
+use Momo\Queue\Contracts\JobObserver;
 use Momo\Queue\Contracts\Transport;
 use Momo\Queue\Exceptions\QueueException;
 use Swoole\Coroutine;
@@ -35,12 +37,16 @@ final class Worker
 
     private bool $lostBroker = false;
 
-    /** @param null|Closure(string, null|Envelope, null|Throwable, float): void $report */
+    /**
+     * @param null|Closure(string, null|Envelope, null|Throwable, float): void $report
+     * @param iterable<JobObserver>                                            $observers
+     */
     public function __construct(
         private readonly Transport $transport,
         private readonly Handlers $handlers,
         private readonly Signer $signer,
         private readonly Closure|null $report = null,
+        private readonly iterable $observers = [],
     ) {}
 
     public function run(WorkerOptions $options): int
@@ -183,8 +189,24 @@ final class Worker
 
     private function report(string $status, Envelope|null $envelope, Throwable|null $error, float|int $started): void
     {
+        $ms = (hrtime(true) - $started) / 1e6;
         if ($this->report instanceof Closure) {
-            ($this->report)($status, $envelope, $error, (hrtime(true) - $started) / 1e6);
+            ($this->report)($status, $envelope, $error, $ms);
+        }
+
+        $run = RunStatus::tryFrom($status);
+        if (! $envelope instanceof Envelope || ! $run instanceof RunStatus) {
+            return;
+        }
+
+        foreach ($this->observers as $observer) {
+            try {
+                $observer->observe(new JobRun($run, $envelope, $error, $ms, new DateTimeImmutable()));
+            } catch (Throwable $unobserved) {
+                if ($this->report instanceof Closure) {
+                    ($this->report)('unobserved', $envelope, $unobserved, 0.0);
+                }
+            }
         }
     }
 

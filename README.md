@@ -35,6 +35,7 @@
 - `queue:work --concurrency=20`: twenty jobs at once in one process, SIGTERM lets them finish
 - A broker that stays down for `--max-failures` polls in a row (12 by default, about a minute) ends `queue:work` with code 1, so docker or the supervisor starts a fresh process instead of keeping a worker on a dead link
 - Failed jobs are kept: `queue:failed`, `queue:retry <id>|all`; `queue:list` shows every job with its handler, queue and attempts
+- A `JobObserver` in any module sees every run of `queue:work`: done, retried or failed, with the error and the milliseconds. A history of jobs, metrics or an alert is one class; an observer that throws stops no job
 - The `memory` transport for tests: `queue.transport = memory` keeps jobs in the process
 - A command of the bus with `#[Queued(queue: 'reports', attempts: 3)]` goes to the queue after the permission check, the sender gets `null`; the worker sends it to the same bus as the user and team who sent it, so the permission, the transaction and the events after commit run there again. Every `Momo\Bus\Contracts\Context` of the app carries its state with the command
 
@@ -106,7 +107,7 @@ Tests against RabbitMQ run when `AMQP_HOST` is set: `docker run -d -p 5672:5672 
 
 ## Status
 
-0.6. Public API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Worker`, `WorkerOptions`.
+0.6. Public API: `Contracts\Queue`, `Contracts\JobHandler`, `Contracts\Transport`, `Job`, `Envelope`, `FailedJob`, `Contracts\JobObserver`, `JobRun`, `RunStatus`, `Worker`, `WorkerOptions`.
 
 ## License
 
